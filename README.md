@@ -1,5 +1,5 @@
-dotfiler — the ultimate dot-files manager!
-==========================================
+dotfiler — the ultimate solution for managing dotfiles!
+=======================================================
 
 It was inspired by [Zach Holman's dotfiles](https://github.com/holman/dotfiles) and
 [homesick](https://github.com/technicalpickles/homesick), but was made according KISS priciple.
