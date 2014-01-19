@@ -5,17 +5,19 @@ from . import real_filesystem
 
 
 class File(object):
-    def __init__(self, name, env):
+    def __init__(self, name, envs):
         self.name = name
-        self.env = env
+        self.envs = envs
 
     def __repr__(self):
-        return 'File: {0}/{1}'.format(self.env, self.name)
+        return 'File: ({0})/{1}'.format(
+            '|'.join(self.envs),
+            self.name)
 
     def __eq__(self, right):
         return (isinstance(right, File) and
                 self.name == right.name and
-                self.env == right.env)
+                self.envs == right.envs)
         
 class Dir(object):
     def __init__(self, name, envs, children=None):
@@ -94,7 +96,7 @@ def create_tree_from_text(text):
                         extract_envs(items))
                        for key, items in grouped]
 
-            grouped = [Dir(key, envs, children=process(*reminder)) if reminder else File(key, envs[0])
+            grouped = [Dir(key, envs, children=process(*reminder)) if reminder else File(key, envs)
                        for key, reminder, envs in grouped]
             grouped = filter(None, grouped)
             return grouped
@@ -132,36 +134,37 @@ def create_install_actions(base_dir, home_dir, tree, filesystem=real_filesystem)
             children = getattr(item, 'children', None)
             
             if children and len(item.envs) > 1:
-                for path, env in walk(children):
+                for path, envs in walk(children):
                     yield ((item.name,) + path,
-                           env)
+                           envs)
             else:
-                if isinstance(item, Dir):
-                    yield ((item.name,), item.envs[0])
-                else:
-                    yield ((item.name,), item.env)
+                yield ((item.name,), item.envs)
 
-    for path, env in walk(tree):
-        source = os.path.join(base_dir, env, *path)
-        target = os.path.join(home_dir, *path)
-        
-        if filesystem.link_exists(target):
-            action_type = 'already-linked'
+    for path, envs in walk(tree):
+        if len(envs) > 1:
+            actions.append(('error', 'File {0} exists in more then one environments: {1}'.format(
+                os.path.join(*path), ', '.join(envs))))
         else:
-            action_type = 'link'
-            
-            # now, add actions to create all intermediate directories
-            # but only if there isn't such actions already
-            mkdirs = []
-            for i in range(1, len(path)):
-                dirname = os.path.join(home_dir, *path[:-i])
-                if not filesystem.exists(dirname):
-                    action = ('mkdir', dirname)
-                    if action not in actions:
-                        mkdirs.insert(0, action)
-                        
-            actions.extend(mkdirs)
-        actions.append((action_type, source, target))
+            source = os.path.join(base_dir, envs[0], *path)
+            target = os.path.join(home_dir, *path)
+
+            if filesystem.link_exists(target):
+                action_type = 'already-linked'
+            else:
+                action_type = 'link'
+
+                # now, add actions to create all intermediate directories
+                # but only if there isn't such actions already
+                mkdirs = []
+                for i in range(1, len(path)):
+                    dirname = os.path.join(home_dir, *path[:-i])
+                    if not filesystem.exists(dirname):
+                        action = ('mkdir', dirname)
+                        if action not in actions:
+                            mkdirs.insert(0, action)
+
+                actions.extend(mkdirs)
+            actions.append((action_type, source, target))
     return actions
 
     

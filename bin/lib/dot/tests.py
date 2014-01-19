@@ -42,7 +42,7 @@ def test_create_tree_simple_file():
     text = """
     base/.zsh
     """
-    tree = [File('.zsh', env='base')]
+    tree = [File('.zsh', envs=['base'])]
     eq_(tree, create_tree(text))
 
     
@@ -59,8 +59,8 @@ def test_create_tree_non_empty_dir():
     base/.zshrc
     base/.bashrc
     """
-    tree = [File('.bashrc', env='base'),
-            File('.zshrc', env='base')]
+    tree = [File('.bashrc', envs=['base']),
+            File('.zshrc', envs=['base'])]
     eq_(tree, create_tree(text))
 
     
@@ -68,7 +68,7 @@ def test_create_tree_dir_with_subdir():
     text = """
     base/.zsh/aliases
     """
-    tree = [Dir('.zsh', envs=['base'], children=[File('aliases', env='base')])]
+    tree = [Dir('.zsh', envs=['base'], children=[File('aliases', envs=['base'])])]
     eq_(tree, create_tree(text))
 
 def test_create_tree_dir_with_two_files():
@@ -77,8 +77,8 @@ def test_create_tree_dir_with_two_files():
     base/.zsh/functions
     """
     tree = [Dir('.zsh', envs=['base'], children=[
-               File('aliases', env='base'),
-               File('functions', env='base')])]
+               File('aliases', envs=['base']),
+               File('functions', envs=['base'])])]
     eq_(tree, create_tree(text))
 
 def test_create_less_complex_tree():
@@ -87,8 +87,8 @@ def test_create_less_complex_tree():
     develop/.zsh/complex
     """
     tree = [Dir('.zsh', envs=['base', 'develop'], children=[
-        File('simple', env='base'),
-        File('complex', env='develop')])]
+        File('simple', envs=['base']),
+        File('complex', envs=['develop'])])]
     eq_(tree, create_tree(text))
 
 
@@ -99,8 +99,8 @@ def test_create_more_complex_tree():
     """
     tree = [Dir('.zsh', envs=['base', 'develop'], children=[
         Dir('conf.d', envs=['base', 'develop'], children=[
-            File('simple', env='base'),
-            File('complex', env='develop')])])]
+            File('simple', envs=['base']),
+            File('complex', envs=['develop'])])])]
     eq_(tree, create_tree(text))
 
 
@@ -112,9 +112,9 @@ def test_create_more_complex_tree_with_one_more_file():
     """
     tree = [Dir('.zsh', envs=['base', 'develop'], children=[
                 Dir('conf.d', envs=['base', 'develop'], children=[
-                    File('simple', env='base'),
-                    File('complex', env='develop')])]),
-            File('.zshrc', env='develop'),
+                    File('simple', envs=['base']),
+                    File('complex', envs=['develop'])])]),
+            File('.zshrc', envs=['develop']),
     ]
     eq_(tree, create_tree(text))
 
@@ -126,12 +126,12 @@ def test_create_even_more_complex_tree():
     develop/.emacsrc
     develop/.zsh/aliases/git
     """
-    tree = [File('.emacsrc', env='develop'),
+    tree = [File('.emacsrc', envs=['develop']),
             Dir('.zsh', envs=['base', 'develop'], children=[
                 Dir('aliases', envs=['base', 'develop'], children=[
-                    File('simple', env='base'),
-                    File('git', env='develop')])]),
-            File('.zshrc', env='base')]
+                    File('simple', envs=['base']),
+                    File('git', envs=['develop'])])]),
+            File('.zshrc', envs=['base'])]
     eq_(tree, create_tree(text))
 
 # END creating tree tests
@@ -179,4 +179,16 @@ def test_actions_link_separate_files_from_different_modules():
          ('mkdir', '/home/art/.zsh/conf.d'),
          ('link', '/home/art/.dotfiles/base/.zsh/conf.d/aliases', '/home/art/.zsh/conf.d/aliases'),
          ('link', '/home/art/.dotfiles/develop/.zsh/conf.d/git-completions', '/home/art/.zsh/conf.d/git-completions')],
+        actions)
+
+
+def test_actions_same_file_in_different_evns_is_error():
+    """Если один и тот же файл есть в разных окружениях, то они выдаем ошибку о конфликте."""
+    filesystem = FakeFilesystem("")
+    tree = create_tree("""
+    base/.zsh/aliases
+    develop/.zsh/aliases
+    """)
+    actions = create_install_actions(base_dir, home_dir, tree, filesystem)
+    eq_([('error', 'File .zsh/aliases exists in more then one environments: base, develop')],
         actions)
