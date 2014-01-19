@@ -14,3 +14,7 @@ your `PATH`.
 2. Then clone some config files into the `$HOME/.dotfiles` .
 3. Run `dot update` to make all necessary symlinks.
 4. Have a profit!
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/svetlyak40wt/dotfiler/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
