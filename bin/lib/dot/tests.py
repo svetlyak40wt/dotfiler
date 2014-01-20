@@ -19,21 +19,24 @@ class FakeFilesystem(object):
             link_target = line[1].strip() if len(line) > 1 else None
             source = line[0].strip()
             is_dir = source.endswith('/')
-            return source, (is_dir, link_target)
+            return source.rstrip('/'), (is_dir, link_target)
                 
         lines = [line.strip() for line in text.split('\n')]
         lines = map(parse_line, lines)
         self.structure = dict(lines)
 
-    def link_exists(self, path):
-        return self.structure.get(path, (None, False))[1]
-
     def exists(self, path):
         return path in self.structure
 
+    def is_symlink(self, path):
+        return self.structure.get(path, (None, False))[1]
+
+    def get_symlink_target(self, path):
+        return self.structure[path][1]
 
 
-# START tests of test function for creation of the test
+
+# START: tests of test function for creation of the test
 # directory tree from text description
 # in production tree will be built from real filesystem
     
@@ -134,8 +137,10 @@ def test_create_even_more_complex_tree():
             File('.zshrc', envs=['base'])]
     eq_(tree, create_tree(text))
 
-# END creating tree tests
+# END: creating tree tests
 
+
+# START: Tests for different cases
 
 def test_actions_simple_link():
     """Нет такого файла - сделать симлинк."""
@@ -192,3 +197,66 @@ def test_actions_same_file_in_different_evns_is_error():
     actions = create_install_actions(base_dir, home_dir, tree, filesystem)
     eq_([('error', 'File .zsh/aliases exists in more then one environments: base, develop')],
         actions)
+
+
+def test_actions_file_exists():
+    """Файл есть и это не симлинк – сообщение об ошибке."""
+    filesystem = FakeFilesystem("/home/art/.zshrc")
+    tree = create_tree("base/.zshrc")
+    
+    actions = create_install_actions(base_dir, home_dir, tree, filesystem)
+    eq_([('error', 'File /home/art/.zshrc already exists, can\'t make symlink instead of it.')],
+        actions)
+
+
+def test_actions_link_exists_and_its_not_to_dotfiles():
+    """Симлинк есть и ведет не внутрь .dotfiles - показать сообщение об ошибке."""
+    filesystem = FakeFilesystem("/home/art/.zshrc -> /home/art/.zsh/zshrc")
+    tree = create_tree("base/.zshrc")
+    
+    actions = create_install_actions(base_dir, home_dir, tree, filesystem)
+    eq_([('error', 'File /home/art/.zshrc is a symlink to /home/art/.zsh/zshrc, please, remove it manually if you really want to replace it.')],
+        actions)
+
+
+def test_actions_link_exists_and_it_is_to_some_other_dotfile():
+    """Файл есть и это симлинк на что-то другое из .dotfiles - удалить старый симлинк и создать новый."""
+    filesystem = FakeFilesystem("/home/art/.zshrc -> /home/art/.dotfiles/old/.zshrc")
+    tree = create_tree("new/.zshrc")
+    
+    actions = create_install_actions(base_dir, home_dir, tree, filesystem)
+    eq_([('rm', '/home/art/.zshrc'),
+         ('link', '/home/art/.dotfiles/new/.zshrc', '/home/art/.zshrc')],
+        actions)
+
+    
+def test_actions_intermediate_dir_is_symlink_to_outer_space():
+    """Если промежуточная директория — симлинк, ведущий вовне, выводим сообщение об ошибке и больше не делаем ничего."""
+    filesystem = FakeFilesystem("/home/art/.zsh/ -> /home/art/.other-dotfiles/.zsh")
+    tree = create_tree("""
+    base/.zsh/aliases
+    develop/.zsh/git-completions
+    """)
+    
+    actions = create_install_actions(base_dir, home_dir, tree, filesystem)
+    eq_([('error', 'Intermediate directory /home/art/.zsh is a symlink to /home/art/.other-dotfiles/.zsh, please remove it manually.')],
+        actions)
+
+
+def test_actions_intermediate_dir_is_symlink_to_other_dotfile_dir():
+    """Если промежуточная директория симлинк и ведет внутрь dotfiles, удаляем его перед созданием директории."""
+    filesystem = FakeFilesystem("/home/art/.zsh/ -> /home/art/.dotfiles/base/.zsh")
+    tree = create_tree("""
+    base/.zsh/aliases
+    develop/.zsh/git-completions
+    """)
+    
+    actions = create_install_actions(base_dir, home_dir, tree, filesystem)
+    eq_([('rm', '/home/art/.zsh'),
+         ('mkdir', '/home/art/.zsh'),
+         ('link', '/home/art/.dotfiles/base/.zsh/aliases', '/home/art/.zsh/aliases'),
+         ('link', '/home/art/.dotfiles/develop/.zsh/git-completions', '/home/art/.zsh/git-completions')],
+        actions)
+
+
+# END: Tests for different cases

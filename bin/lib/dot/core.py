@@ -126,6 +126,12 @@ def create_tree_from_filesystem(base_dir, envs):
     
 def create_install_actions(base_dir, home_dir, tree, filesystem=real_filesystem):
     actions = []
+    
+    def push_action(action, *args):
+        action = (action,) + args
+        if len(filter(lambda a: a == action, actions)) == 0:
+            actions.append(action)
+        
     def walk(items):
         """Returns tuples (path, env) to where path is a
         path to a leaf item of the file tree or a
@@ -142,29 +148,51 @@ def create_install_actions(base_dir, home_dir, tree, filesystem=real_filesystem)
 
     for path, envs in walk(tree):
         if len(envs) > 1:
-            actions.append(('error', 'File {0} exists in more then one environments: {1}'.format(
-                os.path.join(*path), ', '.join(envs))))
+            push_action('error', 'File {0} exists in more then one environments: {1}'.format(
+                os.path.join(*path), ', '.join(envs)))
         else:
             source = os.path.join(base_dir, envs[0], *path)
             target = os.path.join(home_dir, *path)
 
-            if filesystem.link_exists(target):
-                action_type = 'already-linked'
+            if filesystem.exists(target):
+                if not filesystem.is_symlink(target):
+                    push_action('error', 'File {0} already exists, can\'t make symlink instead of it.'.format(target))
+                else:
+                    symlink_target = filesystem.get_symlink_target(target)
+                    if symlink_target.startswith(base_dir):
+                        if symlink_target == source:
+                            push_action('already-linked', source, target)
+                        else:
+                            push_action('rm', target)
+                            push_action('link', source, target)
+                    else:
+                        push_action('error', 'File {0} is a symlink to {1}, please, remove it manually if you really want to replace it.'.format(
+                            target, symlink_target))
             else:
-                action_type = 'link'
-
                 # now, add actions to create all intermediate directories
                 # but only if there isn't such actions already
                 mkdirs = []
                 for i in range(1, len(path)):
                     dirname = os.path.join(home_dir, *path[:-i])
-                    if not filesystem.exists(dirname):
+
+                    if filesystem.exists(dirname):
+                        if filesystem.is_symlink(dirname):
+                            symlink_target = filesystem.get_symlink_target(dirname)
+                            if symlink_target.startswith(base_dir):
+                                push_action('rm', dirname)
+                                push_action('mkdir', dirname)
+                            else:
+                                push_action('error', 'Intermediate directory {0} is a symlink to {1}, please remove it manually.'.format(
+                                    dirname, symlink_target))
+                                break
+                    else:
                         action = ('mkdir', dirname)
                         if action not in actions:
                             mkdirs.insert(0, action)
 
-                actions.extend(mkdirs)
-            actions.append((action_type, source, target))
+                if not actions or actions[-1][0] != 'error':
+                    actions.extend(mkdirs)
+                    push_action('link', source, target)
     return actions
 
     
