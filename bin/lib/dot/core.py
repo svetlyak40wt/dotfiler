@@ -2,6 +2,7 @@ import os
 
 from itertools import groupby
 from . import real_filesystem
+from termcolor import colored
 
 
 class File(object):
@@ -41,14 +42,17 @@ class Dir(object):
 def processor_real(actions):
     def mkdir(dir):
         os.mkdir(dir)
-        print 'Directory {0} was created.'.format(dir)
+        print colored('INFO', 'green') + ':  Directory {0} was created.'.format(dir)
 
     def link(source, target):
         os.symlink(source, target)
-        print 'Symlink from {0} to {1} was created'.format(target, source)
+        print colored('INFO', 'green') + ':  Symlink from {0} to {1} was created'.format(target, source)
 
     def already_linked(source, target):
-        print 'Symlink from {0} to {1} already exists'.format(target, source)
+        print colored('INFO', 'green') + ':  Symlink from {0} to {1} already exists'.format(target, source)
+
+    def error(message):
+        print colored('ERROR', 'red') + ': ' + message
         
     mapping = locals()
     for action in actions:
@@ -56,9 +60,10 @@ def processor_real(actions):
         
 
 def processor_dry(actions):
-    mapping = {'mkdir': 'Directory {0} will be created',
-               'link': 'Symlink from  {1} to {0} will be created',
-               'already-linked': 'Symlink from {1} to {0} already exists',}
+    mapping = {'mkdir': colored('INFO', 'green') + ':  Directory {0} will be created',
+               'link': colored('INFO', 'green') + ':  Symlink from  {1} to {0} will be created',
+               'already-linked': colored('INFO', 'green') + ':  Symlink from {1} to {0} already exists',
+               'error': colored('ERROR', 'red') + ': {0}'}
     for action in actions:
         print mapping[action[0]].format(*action[1:])
 
