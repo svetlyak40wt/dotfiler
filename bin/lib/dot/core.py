@@ -30,7 +30,7 @@ class Dir(object):
         return 'Dir: ({0})/{1}/[{2}]'.format(
             '|'.join(self.envs),
             self.name,
-            ','.join(map(repr, self.children)))
+            ', '.join(map(repr, self.children)))
 
     def __eq__(self, right):
         return (isinstance(right, Dir) and
@@ -63,7 +63,8 @@ def processor_dry(actions):
     mapping = {'mkdir': colored('INFO', 'green') + ':  Directory {0} will be created',
                'link': colored('INFO', 'green') + ':  Symlink from  {1} to {0} will be created',
                'already-linked': colored('INFO', 'green') + ':  Symlink from {1} to {0} already exists',
-               'error': colored('ERROR', 'red') + ': {0}'}
+               'error': colored('ERROR', 'red') + ': {0}',
+               'rm': colored('WARN', 'blue') + ':  Symlink {0} will be removed.' }
     for action in actions:
         print mapping[action[0]].format(*action[1:])
 
@@ -75,7 +76,7 @@ def create_tree_from_text(text):
     # parse text
     lines = (line.strip() for line in text.split('\n'))
     lines = [line.split('/') for line in lines if line]
-    lines.sort(key=lambda x: x[1])
+    lines.sort(key=lambda x: x[1:])
 
     # extract environments, they are first level directories
     envs = map(head, lines)
@@ -131,7 +132,7 @@ def create_tree_from_filesystem(base_dir, envs):
     
 def create_install_actions(base_dir, home_dir, tree, filesystem=real_filesystem):
     actions = []
-    
+
     def push_action(action, *args):
         action = (action,) + args
         if len(filter(lambda a: a == action, actions)) == 0:
@@ -143,7 +144,7 @@ def create_install_actions(base_dir, home_dir, tree, filesystem=real_filesystem)
         directory with files from one env only."""
         for item in items:
             children = getattr(item, 'children', None)
-            
+
             if children and len(item.envs) > 1:
                 for path, envs in walk(children):
                     yield ((item.name,) + path,

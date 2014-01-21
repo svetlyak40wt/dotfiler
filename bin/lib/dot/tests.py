@@ -90,20 +90,22 @@ def test_create_less_complex_tree():
     develop/.zsh/complex
     """
     tree = [Dir('.zsh', envs=['base', 'develop'], children=[
-        File('simple', envs=['base']),
-        File('complex', envs=['develop'])])]
+        File('complex', envs=['develop']),
+        File('simple', envs=['base'])])]
     eq_(tree, create_tree(text))
 
 
 def test_create_more_complex_tree():
     text = """
     base/.zsh/conf.d/simple
+    base/.zsh/some-config
     develop/.zsh/conf.d/complex
     """
     tree = [Dir('.zsh', envs=['base', 'develop'], children=[
         Dir('conf.d', envs=['base', 'develop'], children=[
-            File('simple', envs=['base']),
-            File('complex', envs=['develop'])])])]
+            File('complex', envs=['develop']),
+            File('simple', envs=['base'])]),
+        File('some-config', envs=['base'])])]
     eq_(tree, create_tree(text))
 
 
@@ -115,8 +117,8 @@ def test_create_more_complex_tree_with_one_more_file():
     """
     tree = [Dir('.zsh', envs=['base', 'develop'], children=[
                 Dir('conf.d', envs=['base', 'develop'], children=[
-                    File('simple', envs=['base']),
-                    File('complex', envs=['develop'])])]),
+                    File('complex', envs=['develop']),
+                    File('simple', envs=['base'])])]),
             File('.zshrc', envs=['develop']),
     ]
     eq_(tree, create_tree(text))
@@ -132,8 +134,8 @@ def test_create_even_more_complex_tree():
     tree = [File('.emacsrc', envs=['develop']),
             Dir('.zsh', envs=['base', 'develop'], children=[
                 Dir('aliases', envs=['base', 'develop'], children=[
-                    File('simple', envs=['base']),
-                    File('git', envs=['develop'])])]),
+                    File('git', envs=['develop']),
+                    File('simple', envs=['base'])])]),
             File('.zshrc', envs=['base'])]
     eq_(tree, create_tree(text))
 
@@ -256,6 +258,34 @@ def test_actions_intermediate_dir_is_symlink_to_other_dotfile_dir():
          ('mkdir', '/home/art/.zsh'),
          ('link', '/home/art/.dotfiles/base/.zsh/aliases', '/home/art/.zsh/aliases'),
          ('link', '/home/art/.dotfiles/develop/.zsh/git-completions', '/home/art/.zsh/git-completions')],
+        actions)
+
+
+def test_actions_complex_example_where_intermediate_dir_is_symlink_to_other_dotfile_dir():
+    """Если промежуточная директория симлинк и ведет внутрь dotfiles, но большая глубина вложенности."""
+    filesystem = FakeFilesystem("""
+    /home/art/.zsh/ -> /home/art/.dotfiles/base/.zsh
+    /home/art/.zsh/conf.d/
+    /home/art/.zsh/conf.d/aliases
+    /home/art/.zsh/cache/
+    /home/art/.zsh/cache/some-cached-data
+    /home/art/.zsh/prompt_colors
+    """)
+    tree = create_tree("""
+    base/.zsh/conf.d/aliases
+    base/.zsh/cache/blah
+    base/.zsh/prompt_colors
+    develop/.zsh/conf.d/git-completions
+    """)
+
+    actions = create_install_actions(base_dir, home_dir, tree, filesystem)
+    eq_([('rm', '/home/art/.zsh'),
+         ('mkdir', '/home/art/.zsh'),
+         ('mkdir', '/home/art/.zsh/conf.d'),
+         ('link', '/home/art/.dotfiles/base/.zsh/conf.d/aliases', '/home/art/.zsh/conf.d/aliases'),
+         ('link', '/home/art/.dotfiles/base/.zsh/cache', '/home/art/.zsh/cache'),
+         ('link', '/home/art/.dotfiles/base/.zsh/prompt_colors', '/home/art/.zsh/prompt_colors'),
+         ('link', '/home/art/.dotfiles/develop/.zsh/conf.d/git-completions', '/home/art/.zsh/conf.d/git-completions')],
         actions)
 
 
