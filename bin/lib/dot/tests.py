@@ -1,5 +1,6 @@
 # coding: utf-8
 from .core import *
+from .virtual_fs import VirtualFS
 from nose.tools import eq_
 
 
@@ -29,12 +30,32 @@ class FakeFilesystem(object):
         return path in self.structure
 
     def is_symlink(self, path):
-        return self.structure.get(path, (None, False))[1]
+        return bool(self.structure.get(path, (None, False))[1])
 
     def get_symlink_target(self, path):
         return self.structure[path][1]
 
+    def realpath(self, path):
+        parts = path.split('/')
+        for idx in range(1, len(parts) + 1):
+            dirname = '/'.join(parts[:idx])
+            if self.is_symlink(dirname):
+                real_dirname = self.get_symlink_target(dirname)
+                parts[:idx] = real_dirname.split('/')
+        return '/'.join(parts)
 
+    def rm(self, path):
+        del self.structure[path]
+
+
+def test_fakefs_realpath():
+    filesystem = FakeFilesystem("""
+    /home/art/.zsh/ -> /home/art/.dotfiles/zsh/.zsh
+    /home/art/.zsh/the-file
+    """)
+    eq_('/home/art/.dotfiles/zsh/.zsh/the-file',
+        filesystem.realpath('/home/art/.zsh/the-file'))
+    
 
 # START: tests of test function for creation of the test
 # directory tree from text description
@@ -281,12 +302,113 @@ def test_actions_complex_example_where_intermediate_dir_is_symlink_to_other_dotf
     actions = create_install_actions(base_dir, home_dir, tree, filesystem)
     eq_([('rm', '/home/art/.zsh'),
          ('mkdir', '/home/art/.zsh'),
+         ('link', '/home/art/.dotfiles/base/.zsh/cache', '/home/art/.zsh/cache'),
          ('mkdir', '/home/art/.zsh/conf.d'),
          ('link', '/home/art/.dotfiles/base/.zsh/conf.d/aliases', '/home/art/.zsh/conf.d/aliases'),
-         ('link', '/home/art/.dotfiles/base/.zsh/cache', '/home/art/.zsh/cache'),
-         ('link', '/home/art/.dotfiles/base/.zsh/prompt_colors', '/home/art/.zsh/prompt_colors'),
-         ('link', '/home/art/.dotfiles/develop/.zsh/conf.d/git-completions', '/home/art/.zsh/conf.d/git-completions')],
+         ('link', '/home/art/.dotfiles/develop/.zsh/conf.d/git-completions', '/home/art/.zsh/conf.d/git-completions'),
+         ('link', '/home/art/.dotfiles/base/.zsh/prompt_colors', '/home/art/.zsh/prompt_colors')],
         actions)
 
 
+def test_fakefs_realpath():
+    filesystem = FakeFilesystem("""
+    /home/art/.zsh/alias -> /home/art/.dotfiles/base/.zsh/alias
+    """)
+    eq_('/home/art/.dotfiles/base/.zsh/alias',
+        filesystem.realpath('/home/art/.zsh/alias'))
+    
+    
+def test_actions_complex_when_dir_created_and_link_already_created_too():
+    """Если промежуточная директория создана, и там уже есть симлинк, который ведет в
+    нужное место внутри dotfiles, то нужно выводить already-linked."""
+    filesystem = FakeFilesystem("""
+    /home/art/.zsh/
+    /home/art/.zsh/aliases  -> /home/art/.dotfiles/base/.zsh/aliases
+    """)
+    tree = create_tree("""
+    base/.zsh/aliases
+    develop/.zsh/git-completions
+    """)
+
+    actions = create_install_actions(base_dir, home_dir, tree, filesystem)
+    eq_([('already-linked', '/home/art/.dotfiles/base/.zsh/aliases', '/home/art/.zsh/aliases'),
+         ('link', '/home/art/.dotfiles/develop/.zsh/git-completions', '/home/art/.zsh/git-completions'),
+     ], actions)
+
+
 # END: Tests for different cases
+
+
+# Start VirtualFS tests
+def test_pass_is_symlink_and_get_symlink_target_to_underlying_fs():
+    base_fs = FakeFilesystem("""
+    /home/art/.zsh/ -> /home/art/.dotfiles/zsh
+    """)
+    fs = VirtualFS(base_fs)
+
+    eq_(True, base_fs.is_symlink('/home/art/.zsh'))
+    eq_(True, fs.is_symlink('/home/art/.zsh'))
+    
+    eq_('/home/art/.dotfiles/zsh', base_fs.get_symlink_target('/home/art/.zsh'))
+    eq_('/home/art/.dotfiles/zsh', fs.get_symlink_target('/home/art/.zsh'))
+
+
+def test_rm_file():
+    base_fs = FakeFilesystem("""
+    /home/art/.zsh/aliases
+    """)
+    fs = VirtualFS(base_fs)
+
+    fs.rm('/home/art/.zsh/aliases')
+    eq_(True, base_fs.exists('/home/art/.zsh/aliases'))
+    eq_(False, fs.exists('/home/art/.zsh/aliases'))
+
+
+def test_rm_dir():
+    base_fs = FakeFilesystem("""
+    /home/art/.zsh/aliases
+    """)
+    fs = VirtualFS(base_fs)
+
+    fs.rm('/home/art/.zsh')
+    eq_(True, base_fs.exists('/home/art/.zsh/aliases'))
+    eq_(False, fs.exists('/home/art/.zsh'))
+    eq_(False, fs.exists('/home/art/.zsh/aliases'))
+
+
+def test_mkdir():
+    base_fs = FakeFilesystem("""
+    /home/art/.zsh/aliases
+    """)
+    fs = VirtualFS(base_fs)
+
+    fs.mkdir('/home/art/.vim')
+    eq_(False, base_fs.exists('/home/art/.vim'))
+    eq_(True, fs.exists('/home/art/.vim'))
+
+
+def test_ln_file():
+    base_fs = FakeFilesystem("""
+    /home/art/.zsh/
+    /home/art/.dotfiles/zsh/aliases
+    """)
+    fs = VirtualFS(base_fs)
+
+    fs.link('/home/art/.dotfiles/zsh/aliases', '/home/art/.zsh/aliases')
+    eq_(False, base_fs.exists('/home/art/.zsh/aliases'))
+    eq_(True, fs.exists('/home/art/.zsh/aliases'))
+    eq_(True, fs.is_symlink('/home/art/.zsh/aliases'))
+    eq_('/home/art/.dotfiles/zsh/aliases', fs.get_symlink_target('/home/art/.zsh/aliases'))
+
+
+def test_ln_dir():
+    base_fs = FakeFilesystem("""
+    /home/art/.dotfiles/zsh/aliases
+    """)
+    fs = VirtualFS(base_fs)
+
+    fs.link('/home/art/.dotfiles/zsh', '/home/art/.zsh')
+    eq_(False, base_fs.exists('/home/art/.zsh'))
+    eq_(True, fs.exists('/home/art/.zsh'))
+    eq_(True, fs.exists('/home/art/.zsh/aliases'))
+    eq_('/home/art/.dotfiles/zsh/aliases', fs.realpath('/home/art/.zsh/aliases'))

@@ -1,7 +1,9 @@
+# coding: utf-8
 import os
 
 from itertools import groupby
-from . import real_filesystem
+from .real_filesystem import RealFS
+from .virtual_fs import VirtualFS
 from termcolor import colored
 
 
@@ -37,16 +39,20 @@ class Dir(object):
                 self.name == right.name and
                 self.envs == right.envs and
                 self.children == right.children)
-        
 
-def processor_real(actions):
+
+def processor_real(actions, fs):
     def mkdir(dir):
-        os.mkdir(dir)
-        print colored('INFO', 'green') + ':  Directory {0} was created.'.format(dir)
+        fs.mkdir(dir)
+        print colored('INFO', 'magenta') + ':  Directory {0} was created.'.format(dir)
+
+    def rm(dir):
+        fs.rm(dir)
+        print colored('WARN', 'magenta') + ':  Symlink {0} was removed.'.format(dir)
 
     def link(source, target):
-        os.symlink(source, target)
-        print colored('INFO', 'green') + ':  Symlink from {0} to {1} was created'.format(target, source)
+        fs.symlink(source, target)
+        print colored('INFO', 'magenta') + ':  Symlink from {0} to {1} was created'.format(target, source)
 
     def already_linked(source, target):
         print colored('INFO', 'green') + ':  Symlink from {0} to {1} already exists'.format(target, source)
@@ -59,12 +65,12 @@ def processor_real(actions):
         mapping[action[0].replace('-', '_')](*action[1:])
         
 
-def processor_dry(actions):
-    mapping = {'mkdir': colored('INFO', 'green') + ':  Directory {0} will be created',
-               'link': colored('INFO', 'green') + ':  Symlink from  {1} to {0} will be created',
+def processor_dry(actions, fs):
+    mapping = {'mkdir': colored('INFO', 'magenta') + ':  Directory {0} will be created',
+               'link': colored('INFO', 'magenta') + ':  Symlink from  {1} to {0} will be created',
                'already-linked': colored('INFO', 'green') + ':  Symlink from {1} to {0} already exists',
                'error': colored('ERROR', 'red') + ': {0}',
-               'rm': colored('WARN', 'blue') + ':  Symlink {0} will be removed.' }
+               'rm': colored('WARN', 'magenta') + ':  Symlink {0} will be removed.' }
     for action in actions:
         print mapping[action[0]].format(*action[1:])
 
@@ -130,13 +136,24 @@ def create_tree_from_filesystem(base_dir, envs):
     return create_tree_from_text(text)
 
     
-def create_install_actions(base_dir, home_dir, tree, filesystem=real_filesystem):
+def create_install_actions(base_dir, home_dir, tree, filesystem):
     actions = []
+    vfs = VirtualFS(filesystem)
 
     def push_action(action, *args):
         action = (action,) + args
+        
+        # each destructive action is applied to the
+        # virtual filesystem to get actual view
+        if action[0] in ('rm', 'mkdir', 'link'):
+            getattr(vfs, action[0])(*action[1:])
+            
         if len(filter(lambda a: a == action, actions)) == 0:
             actions.append(action)
+
+    def push_actions(actions):
+        for action in actions:
+            push_action(*action)
         
     def walk(items):
         """Returns tuples (path, env) to where path is a
@@ -157,48 +174,128 @@ def create_install_actions(base_dir, home_dir, tree, filesystem=real_filesystem)
             push_action('error', 'File {0} exists in more then one environments: {1}'.format(
                 os.path.join(*path), ', '.join(envs)))
         else:
+            
             source = os.path.join(base_dir, envs[0], *path)
             target = os.path.join(home_dir, *path)
 
-            if filesystem.exists(target):
-                if not filesystem.is_symlink(target):
-                    push_action('error', 'File {0} already exists, can\'t make symlink instead of it.'.format(target))
-                else:
-                    symlink_target = filesystem.get_symlink_target(target)
-                    if symlink_target.startswith(base_dir):
-                        if symlink_target == source:
-                            push_action('already-linked', source, target)
+
+            if True:
+                exists = vfs.exists(target)
+                is_symlink = exists and vfs.is_symlink(target)
+
+                target_dir = os.path.dirname(target)
+                in_symlinked_directory = vfs.realpath(target_dir) != target_dir
+                
+                realpath = vfs.realpath(target)
+                already_linked = exists and realpath == source
+
+                symlink_target = vfs.get_symlink_target(target) if is_symlink else None
+                symlink_outside_base_dir = is_symlink and not symlink_target.startswith(base_dir)
+                symlink_to_some_other_dotfile = (is_symlink
+                                                 and symlink_target.startswith(base_dir)
+                                                 and symlink_target != source)
+                
+
+
+                if already_linked and not in_symlinked_directory:
+                    push_action('already-linked', source, target)
+
+                elif symlink_outside_base_dir:
+                    push_action('error', 'File {0} is a symlink to {1}, please, remove it manually if you really want to replace it.'.format(
+                        target, symlink_target))
+
+                elif not exists or symlink_to_some_other_dotfile or in_symlinked_directory:
+                    # now, add actions to create all intermediate directories
+                    # but only if there isn't such actions already
+                    mkdirs = []
+                    for i in range(1, len(path)):
+                        dirname = os.path.join(home_dir, *path[:-i])
+
+                        if vfs.exists(dirname):
+                            if vfs.is_symlink(dirname):
+                                symlink_target = vfs.get_symlink_target(dirname)
+                                if symlink_target.startswith(base_dir):
+                                    push_action('rm', dirname)
+                                    push_action('mkdir', dirname)
+                                else:
+                                    push_action('error', 'Intermediate directory {0} is a symlink to {1}, please remove it manually.'.format(
+                                        dirname, symlink_target))
+                                    break
                         else:
+                            action = ('mkdir', dirname)
+                            if action not in actions:
+                                mkdirs.insert(0, action)
+
+                    if not actions or actions[-1][0] != 'error':
+                        push_actions(mkdirs)
+                        
+                        if symlink_to_some_other_dotfile:
                             push_action('rm', target)
-                            push_action('link', source, target)
-                    else:
-                        push_action('error', 'File {0} is a symlink to {1}, please, remove it manually if you really want to replace it.'.format(
-                            target, symlink_target))
-            else:
-                # now, add actions to create all intermediate directories
-                # but only if there isn't such actions already
-                mkdirs = []
-                for i in range(1, len(path)):
-                    dirname = os.path.join(home_dir, *path[:-i])
+                            
+                        push_action('link', source, target)
+                else:
+                    ################## Other actions
+                    already_exists_but_not_symlink = exists and not is_symlink
 
-                    if filesystem.exists(dirname):
-                        if filesystem.is_symlink(dirname):
-                            symlink_target = filesystem.get_symlink_target(dirname)
-                            if symlink_target.startswith(base_dir):
-                                push_action('rm', dirname)
-                                push_action('mkdir', dirname)
+
+                    if symlink_to_some_other_dotfile:
+                        # TODO REMOVE
+                        push_action('rm', target)
+                        push_action('link', source, target)
+
+
+                    if already_exists_but_not_symlink:
+                        push_action('error', 'File {0} already exists, can\'t make symlink instead of it.'.format(target))
+
+
+
+            if False:
+                # для файлов, которые не внутри засимлинканой директории
+                if vfs.exists(target) and vfs.realpath(target) == target:
+                    # если сам файл не является симлинком, то это ошибка
+                    if not vfs.is_symlink(target):
+                        # TODO: REMOVE
+                        push_action('error', 'File {0} already exists, can\'t make symlink instead of it.'.format(target))
+                    else:
+                        symlink_target = vfs.get_symlink_target(target)
+                        if symlink_target.startswith(base_dir):
+                            if symlink_target == source:
+                                # TODO: REMOVE
+                                push_action('already-linked', source, target)
                             else:
-                                push_action('error', 'Intermediate directory {0} is a symlink to {1}, please remove it manually.'.format(
-                                    dirname, symlink_target))
-                                break
-                    else:
-                        action = ('mkdir', dirname)
-                        if action not in actions:
-                            mkdirs.insert(0, action)
+                                # TODO: REMOVE
+                                push_action('rm', target)
+                                push_action('link', source, target)
+                        else:
+                            # TODO: REMOVE
+                            push_action('error', 'File {0} is a symlink to {1}, please, remove it manually if you really want to replace it.'.format(
+                                target, symlink_target))
+                else:
+                    # TODO: REMOVE
+                    # now, add actions to create all intermediate directories
+                    # but only if there isn't such actions already
+                    mkdirs = []
+                    for i in range(1, len(path)):
+                        dirname = os.path.join(home_dir, *path[:-i])
 
-                if not actions or actions[-1][0] != 'error':
-                    actions.extend(mkdirs)
-                    push_action('link', source, target)
+                        if vfs.exists(dirname):
+                            if vfs.is_symlink(dirname):
+                                symlink_target = vfs.get_symlink_target(dirname)
+                                if symlink_target.startswith(base_dir):
+                                    push_action('rm', dirname)
+                                    push_action('mkdir', dirname)
+                                else:
+                                    push_action('error', 'Intermediate directory {0} is a symlink to {1}, please remove it manually.'.format(
+                                        dirname, symlink_target))
+                                    break
+                        else:
+                            action = ('mkdir', dirname)
+                            if action not in actions:
+                                mkdirs.insert(0, action)
+
+                    if not actions or actions[-1][0] != 'error':
+                        push_actions(mkdirs)
+                        push_action('link', source, target)
     return actions
 
     
@@ -214,11 +311,12 @@ def update(base_dir, home_dir, args,
     if tree_builder is None:
         tree_builder = create_tree_from_filesystem
     tree = tree_builder(base_dir, envs)
-    
-    actions = create_install_actions(base_dir, home_dir, tree)
+
+    fs = RealFS()
+    actions = create_install_actions(base_dir, home_dir, tree, fs)
     if processor is None:
         processor = processor_dry if args['--dry'] else processor_real
-    processor(actions)
+    processor(actions, fs)
 
 
 COMMANDS = dict(update=update)
