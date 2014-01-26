@@ -12,6 +12,7 @@ __doc__ = """Dotfiles manager
 
 Usage:
   dot update [--dry] [--base-dir=<base-dir>] [--home-dir=<home-dir>]
+  dot status [--base-dir=<base-dir>]
   dot (-h | --help)
   dot --version
 
@@ -31,7 +32,7 @@ if __name__ == '__main__':
     arguments = docopt(__doc__, version='Dot 0.1')
 
     for name, func in COMMANDS.items():
-        if name in arguments:
+        if arguments[name]:
             func(arguments['--base-dir'],
                  arguments['--home-dir'],
                  arguments)

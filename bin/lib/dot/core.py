@@ -1,5 +1,6 @@
 # coding: utf-8
 import os
+import subprocess
 
 from itertools import groupby
 from .real_filesystem import RealFS
@@ -298,17 +299,23 @@ def create_install_actions(base_dir, home_dir, tree, filesystem):
                         push_action('link', source, target)
     return actions
 
-    
-def update(base_dir, home_dir, args,
-            processor=None,
-            tree_builder=None):
-    # search installed environments
+
+def _get_envs(base_dir):
+    """Searches installed environments in the base_dir.
+    """
     ignored_dirs = ['.git', 'bin']
     envs = os.listdir(base_dir)
     envs = [env
             for env in envs
             if os.path.isdir(os.path.join(base_dir, env)) and env not in ignored_dirs]
+    return envs
 
+    
+def update(base_dir, home_dir, args,
+            processor=None,
+            tree_builder=None):
+    envs = _get_envs(base_dir)
+    
     # create a files tree
     if tree_builder is None:
         tree_builder = create_tree_from_filesystem
@@ -321,4 +328,31 @@ def update(base_dir, home_dir, args,
     processor(actions, fs)
 
 
-COMMANDS = dict(update=update)
+def status(base_dir, home_dir, args):
+    envs = _get_envs(base_dir)
+
+    cwd = os.getcwd()
+
+    try:
+        for env in envs:
+            full_path = os.path.join(base_dir, env)
+            os.chdir(full_path)
+
+            if os.path.exists('.git'):
+                process = subprocess.Popen(['git', 'status', '--porcelain'],
+                                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                stdout = process.stdout.read()
+                if stdout:
+                    print env
+                    print '\n'.join('  ' + line
+                                    for line in stdout.split('\n'))
+            else:
+                print env
+                print '  Is not version controlled.'
+
+    finally:
+        os.chdir(cwd)
+        
+
+COMMANDS = dict(update=update,
+                status=status)
