@@ -305,7 +305,9 @@ def update(base_dir, home_dir, args,
     # search installed environments
     ignored_dirs = ['.git', 'bin']
     envs = os.listdir(base_dir)
-    envs = [env for env in filter(os.path.isdir, envs) if env not in ignored_dirs]
+    envs = [env
+            for env in envs
+            if os.path.isdir(os.path.join(base_dir, env)) and env not in ignored_dirs]
 
     # create a files tree
     if tree_builder is None:
