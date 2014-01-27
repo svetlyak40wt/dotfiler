@@ -11,7 +11,7 @@ DEFAULT_HOME_DIR = os.environ['HOME']
 __doc__ = """Dotfiles manager
 
 Usage:
-  dot update [--dry] [--base-dir=<base-dir>] [--home-dir=<home-dir>]
+  dot update [--dry] [--verbose] [--base-dir=<base-dir>] [--home-dir=<home-dir>]
   dot status [--base-dir=<base-dir>]
   dot (-h | --help)
   dot --version
@@ -19,6 +19,7 @@ Usage:
 Options:
   -h --help                Show this screen.
   --version                Show version.
+  -v --verbose             More verbose output.
   --dry                    Don't make real modification, just print what will be done.
   --base-dir=<base-dir>    Directory to search environments [default: {DEFAULT_BASE_DIR}].
   --home-dir=<home-dir>    Directory, where files should be linked to [default: {DEFAULT_HOME_DIR}].
@@ -27,9 +28,12 @@ Options:
 
 from docopt import docopt
 from dot import COMMANDS
+from dot.logging import init_logging
+
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='Dot 0.1')
+    init_logging(verbose=arguments.get('--verbose', False))
 
     for name, func in COMMANDS.items():
         if arguments[name]:

@@ -1,11 +1,14 @@
 # coding: utf-8
+from __future__ import absolute_import
+
 import os
 import subprocess
 
 from itertools import groupby
 from .real_filesystem import RealFS
 from .virtual_fs import VirtualFS
-from termcolor import colored
+from .logging import (log_mkdir, log_link, log_verbose,
+                      log_error, log_rm)
 
 
 class File(object):
@@ -45,21 +48,21 @@ class Dir(object):
 def processor_real(actions, fs):
     def mkdir(dir):
         fs.mkdir(dir)
-        print colored('INFO', 'magenta') + ':  Directory {0} was created.'.format(dir)
+        log_mkdir('Directory {0} was created.'.format(dir))
 
     def rm(dir):
         fs.rm(dir)
-        print colored('WARN', 'magenta') + ':  Symlink {0} was removed.'.format(dir)
+        log_rm('Symlink {0} was removed.'.format(dir))
 
     def link(source, target):
         fs.symlink(source, target)
-        print colored('INFO', 'magenta') + ':  Symlink from {0} to {1} was created'.format(target, source)
+        log_link('Symlink from {0} to {1} was created'.format(target, source))
 
     def already_linked(source, target):
-        print colored('INFO', 'green') + ':  Symlink from {0} to {1} already exists'.format(target, source)
+        log_verbose('Symlink from {0} to {1} already exists'.format(target, source))
 
     def error(message):
-        print colored('ERROR', 'red') + ': ' + message
+        log_error(message)
         
     mapping = locals()
     for action in actions:
@@ -67,13 +70,14 @@ def processor_real(actions, fs):
         
 
 def processor_dry(actions, fs):
-    mapping = {'mkdir': colored('INFO', 'magenta') + ':  Directory {0} will be created',
-               'link': colored('INFO', 'magenta') + ':  Symlink from  {1} to {0} will be created',
-               'already-linked': colored('INFO', 'green') + ':  Symlink from {1} to {0} already exists',
-               'error': colored('ERROR', 'red') + ': {0}',
-               'rm': colored('WARN', 'magenta') + ':  Symlink {0} will be removed.' }
+    mapping = {'mkdir': (log_mkdir, 'Directory {0} will be created'),
+               'link': (log_link, 'Symlink from  {1} to {0} will be created'),
+               'already-linked': (log_verbose, 'Symlink from {1} to {0} already exists'),
+               'error': (log_error, '{0}'),
+               'rm': (log_rm, 'Symlink {0} will be removed.')}
     for action in actions:
-        print mapping[action[0]].format(*action[1:])
+        func, fmt = mapping[action[0]]
+        func(fmt.format(*action[1:]))
 
 
 def create_tree_from_text(text):
