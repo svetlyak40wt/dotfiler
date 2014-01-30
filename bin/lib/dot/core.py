@@ -123,7 +123,8 @@ def create_tree_from_text(text):
 
         
 def create_tree_from_filesystem(base_dir, envs):
-    ignored_dirs = ['.git']
+    ignored_dirs = {'.git'}
+    ignored_files = {'README.md'}
     result = []
 
     base_dir_len = len(base_dir)
@@ -133,11 +134,13 @@ def create_tree_from_filesystem(base_dir, envs):
         env_path = os.path.join(base_dir, env)
         
         for root, dirs, files in os.walk(env_path):
+            dirs[:] = [d for d in dirs if d not in ignored_dirs]
+            files[:] = [f for f in files if f not in ignored_files]
+            
             for filename in files:
                 full_path = os.path.join(root, filename)
                 text += full_path[base_dir_len + 1:]
                 text += u'\n'
-            dirs[:] = [d for d in dirs if d not in ignored_dirs]
 
     return create_tree_from_text(text)
 
