@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 
 import os
+import re
 import subprocess
 
 from itertools import groupby
@@ -343,13 +344,25 @@ def status(base_dir, home_dir, args):
             os.chdir(full_path)
 
             if os.path.exists('.git'):
-                process = subprocess.Popen(['git', 'status', '--porcelain'],
+                process = subprocess.Popen(['git', 'status', '--porcelain', '--branch'],
                                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 stdout = process.stdout.read()
                 if stdout:
-                    print env
-                    print '\n'.join('  ' + line
-                                    for line in stdout.split('\n'))
+                    def replace_ahead(line):
+                        if line.startswith('##'):
+                            match = re.match('^##.*\[ahead (.*?)].*$', line)
+                            if match:
+                                return 'Has {0} not pushed change(s).'.format(match.group(1))
+                        else:
+                            return line
+                        
+                    lines = [line for line in stdout.split('\n')]
+                    lines = map(replace_ahead, lines)
+                    lines = filter(None, lines)
+                    
+                    if lines:
+                        print env
+                        print '\n'.join('  ' + line for line in lines)
             else:
                 print env
                 print '  Is not version controlled.'
