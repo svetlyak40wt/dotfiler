@@ -369,7 +369,56 @@ def status(base_dir, home_dir, args):
 
     finally:
         os.chdir(cwd)
-        
 
+
+def _normalize_url(url):
+    """Returns tuple (real_url, env_name), using
+    following rules:
+    - if url has scheme, its returned as is.
+    - if url is in the form username/repo, then
+      we consider they are username/repo at the github
+      and return full https url.
+    - env_name is a last part of the path with removed
+      '.git' suffix and 'dot[^-]*-' prefix.
+    """
+
+    # extract name
+    name = url.rsplit('/', 1)[-1]
+    name = re.sub(r'^dot[^-]*-', '', name)
+    name = re.sub(r'\.git$', '', name)
+
+    # check if this is a github shortcut
+    match = re.match('^([^/:]+)/([^/]+)$', url)
+    if match is not None:
+        url = 'https://github.com/' + url
+    return (url, name)
+
+
+def _add_url(url):
+    """Installs repo from given url at current dir.
+    """
+    url, env = _normalize_url(url)
+
+    if os.path.exists(env):
+        log_error('Environment "{0}" already exists.'.format(env))
+    else:
+        log_verbose('Cloning repository "{0} to "{1}" dir.'.format(url, env))
+        process = subprocess.check_call(['git', 'clone', url, env])
+    
+
+def add(base_dir, home_dir, args):
+    urls = args['<url>']
+    
+    original_cwd = os.getcwd()
+    os.chdir(base_dir)
+
+    try:
+        for url in urls:
+            _add_url(url)
+    finally:
+        os.chdir(original_cwd)
+
+        
 COMMANDS = dict(update=update,
-                status=status)
+                status=status,
+                add=add)

@@ -1,5 +1,6 @@
 # coding: utf-8
 from .core import *
+from .core import _normalize_url
 from .virtual_fs import VirtualFS
 from nose.tools import eq_
 
@@ -412,3 +413,14 @@ def test_ln_dir():
     eq_(True, fs.exists('/home/art/.zsh'))
     eq_(True, fs.exists('/home/art/.zsh/aliases'))
     eq_('/home/art/.dotfiles/zsh/aliases', fs.realpath('/home/art/.zsh/aliases'))
+
+
+def test_url_normalizer():
+    eq_(('https://github.com/svetlyak40wt/dot-tmux', 'tmux'),
+        _normalize_url('https://github.com/svetlyak40wt/dot-tmux'))
+    eq_(('git@github.com:svetlyak40wt/dot-tmux.git', 'tmux'),
+        _normalize_url('git@github.com:svetlyak40wt/dot-tmux.git'))
+    eq_(('https://github.com/svetlyak40wt/dot-tmux', 'tmux'),
+        _normalize_url('svetlyak40wt/dot-tmux'))
+    eq_(('git:git-private/dot-private.git', 'private'),
+        _normalize_url('git:git-private/dot-private.git'))
