@@ -314,11 +314,25 @@ def _get_envs(base_dir):
             if os.path.isdir(os.path.join(base_dir, env)) and env not in ignored_dirs]
     return envs
 
+
+def make_pull(base_dir, env):
+    pwd = os.getcwd()
+    try:
+        os.chdir(os.path.join(base_dir, env))
+        if os.path.exists('.git'):
+            log_verbose('Making pull in "{0}"...'.format(env))
+            subprocess.check_call('git pull > /dev/null', shell=True)
+    finally:
+        os.chdir(pwd)
+        
     
 def update(base_dir, home_dir, args,
             processor=None,
             tree_builder=None):
     envs = _get_envs(base_dir)
+
+    for env in envs:
+        make_pull(base_dir, env)
     
     # create a files tree
     if tree_builder is None:
