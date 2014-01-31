@@ -59,8 +59,9 @@ class VirtualFS(object):
     def mkdir(self, path):
         parts = self._split(path)
         subtree = self._overlay
+
         for part in parts:
-            subtree.setdefault(part, Node(subtree.full_path + '/' + path))
+            subtree.setdefault(part, Node(subtree.full_path + '/' + part))
             subtree = subtree[part]
 
     def link(self, source, target):

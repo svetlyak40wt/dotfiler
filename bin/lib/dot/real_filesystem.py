@@ -21,4 +21,8 @@ class RealFS(object):
         os.mkdir(path)
 
     def symlink(self, source, target):
-        os.symlink(source, target)
+        try:
+            os.symlink(source, target)
+        except:
+            print 'CANT LINK: {1} -> {0}'.format(source, target)
+            raise

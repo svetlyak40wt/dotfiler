@@ -46,17 +46,21 @@ class Dir(object):
                 self.children == right.children)
 
 
-def processor_real(actions, fs):
+def processor_real(actions, created_links, fs):
+    new_created_links = created_links.copy()
+    
     def mkdir(dir):
         fs.mkdir(dir)
         log_mkdir('Directory {0} was created.'.format(dir))
 
     def rm(dir):
         fs.rm(dir)
+        new_created_links.pop(dir, None)
         log_rm('Symlink {0} was removed.'.format(dir))
 
     def link(source, target):
         fs.symlink(source, target)
+        new_created_links[target] = source
         log_link('Symlink from {0} to {1} was created'.format(target, source))
 
     def already_linked(source, target):
@@ -68,9 +72,11 @@ def processor_real(actions, fs):
     mapping = locals()
     for action in actions:
         mapping[action[0].replace('-', '_')](*action[1:])
+
+    return new_created_links
         
 
-def processor_dry(actions, fs):
+def processor_dry(actions, created_links, fs):
     mapping = {'mkdir': (log_mkdir, 'Directory {0} will be created'),
                'link': (log_link, 'Symlink from  {1} to {0} will be created'),
                'already-linked': (log_verbose, 'Symlink from {1} to {0} already exists'),
@@ -79,6 +85,8 @@ def processor_dry(actions, fs):
     for action in actions:
         func, fmt = mapping[action[0]]
         func(fmt.format(*action[1:]))
+
+    return created_links
 
 
 def create_tree_from_text(text):
@@ -308,6 +316,22 @@ def create_install_actions(base_dir, home_dir, tree, filesystem):
     return actions
 
 
+def create_actions_to_remove_broken_symlinks(created_links, fs):
+    """Removes dangling symlinks, created during previous 'dot update' calls.
+    This could happen when you remove or rename some file in the environment.
+    """
+    results = []
+    
+    for source, target in created_links.items():
+        if fs.exists(source) \
+           and fs.is_symlink(source) \
+           and fs.realpath(source) == target \
+           and not fs.exists(target):
+            results.append(('rm', source))
+        
+    return results
+    
+
 def _get_envs(base_dir):
     """Searches installed environments in the base_dir.
     """
@@ -322,6 +346,7 @@ def _get_envs(base_dir):
 def update(base_dir, home_dir, args,
             processor=None,
             tree_builder=None):
+    dry_run = args['--dry']
     envs = _get_envs(base_dir)
     
     # create a files tree
@@ -330,10 +355,31 @@ def update(base_dir, home_dir, args,
     tree = tree_builder(base_dir, envs)
 
     fs = RealFS()
+    
+    # now, generate 'rm' actions for broken symlinks, among created
+    # during previous 'dot update' invocation
+    created_links_filename = os.path.join(base_dir, '.created-links')
+    if os.path.exists(created_links_filename):
+        with open(created_links_filename) as f:
+            created_links = dict((line.strip().split(' -> '))
+                                 for line in f.readlines())
+            remove_actions = create_actions_to_remove_broken_symlinks(created_links, fs)
+    else:
+        created_links = {}
+        remove_actions = []
+
+    # next, generate actions to create necessary symlinks
     actions = create_install_actions(base_dir, home_dir, tree, fs)
+
     if processor is None:
-        processor = processor_dry if args['--dry'] else processor_real
-    processor(actions, fs)
+        processor = processor_dry if dry_run else processor_real
+        
+    created_links = processor(remove_actions + actions, created_links, fs)
+
+    if not dry_run:
+        with open(created_links_filename, 'w') as f:
+            f.writelines('{0} -> {1}\n'.format(*item)
+                         for item in sorted(created_links.items()))
 
 
 def status(base_dir, home_dir, args):
