@@ -13,6 +13,7 @@ __doc__ = """Dotfiles manager
 Usage:
   dot update [--dry] [--verbose] [--base-dir=<base-dir>] [--home-dir=<home-dir>]
   dot status [--base-dir=<base-dir>]
+  dot add [--base-dir=<base-dir>] [--verbose] <url>...
   dot (-h | --help)
   dot --version
 

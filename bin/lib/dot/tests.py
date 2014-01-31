@@ -1,5 +1,6 @@
 # coding: utf-8
 from .core import *
+from .core import _normalize_url
 from .virtual_fs import VirtualFS
 from nose.tools import eq_
 
@@ -412,3 +413,37 @@ def test_ln_dir():
     eq_(True, fs.exists('/home/art/.zsh'))
     eq_(True, fs.exists('/home/art/.zsh/aliases'))
     eq_('/home/art/.dotfiles/zsh/aliases', fs.realpath('/home/art/.zsh/aliases'))
+
+
+def test_url_normalizer():
+    eq_(('https://github.com/svetlyak40wt/dot-tmux', 'tmux'),
+        _normalize_url('https://github.com/svetlyak40wt/dot-tmux'))
+    eq_(('git@github.com:svetlyak40wt/dot-tmux.git', 'tmux'),
+        _normalize_url('git@github.com:svetlyak40wt/dot-tmux.git'))
+    eq_(('https://github.com/svetlyak40wt/dot-tmux', 'tmux'),
+        _normalize_url('svetlyak40wt/dot-tmux'))
+    eq_(('git:git-private/dot-private.git', 'private'),
+        _normalize_url('git:git-private/dot-private.git'))
+
+
+def test_remove_broken_symlinks():
+    """Symlink 'aliases' now missing from env 'zsh', so we have to remove it."""
+    fs = FakeFilesystem("""
+    # this symlink's target disappeared and symlink should be removed
+    /home/art/.zsh/aliases -> /home/art/.dotfiles/zsh/.zsh/aliases
+    
+    # this symlink's target exists and it is ok
+    /home/art/.zsh/functions -> /home/art/.dotfiles/zsh/.zsh/functions
+    /home/art/.dotfiles/zsh/.zsh/functions
+
+    # this symlink's target exists and but now it points to the different
+    # file than it was after last 'dot update' call. Just ignore it.
+    /home/art/.zsh/prompt -> /home/art/local/.zsh-prompt
+    /home/art/local/.zsh-prompt
+    """)
+    
+    created_links = {'/home/art/.zsh/aliases': '/home/art/.dotfiles/zsh/.zsh/aliases',
+                     '/home/art/.zsh/functions': '/home/art/.dotfiles/zsh/.zsh/functions',
+                     '/home/art/.zsh/prompt': '/home/art/.dotfiles/zsh/.zsh/prompt'}
+    actions = create_actions_to_remove_broken_symlinks(created_links, fs)
+    eq_([('rm', '/home/art/.zsh/aliases')], actions)

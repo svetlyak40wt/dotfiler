@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 
 import os
+import re
 import subprocess
 
 from itertools import groupby
@@ -45,17 +46,21 @@ class Dir(object):
                 self.children == right.children)
 
 
-def processor_real(actions, fs):
+def processor_real(actions, created_links, fs):
+    new_created_links = created_links.copy()
+    
     def mkdir(dir):
         fs.mkdir(dir)
         log_mkdir('Directory {0} was created.'.format(dir))
 
     def rm(dir):
         fs.rm(dir)
+        new_created_links.pop(dir, None)
         log_rm('Symlink {0} was removed.'.format(dir))
 
     def link(source, target):
         fs.symlink(source, target)
+        new_created_links[target] = source
         log_link('Symlink from {0} to {1} was created'.format(target, source))
 
     def already_linked(source, target):
@@ -67,9 +72,11 @@ def processor_real(actions, fs):
     mapping = locals()
     for action in actions:
         mapping[action[0].replace('-', '_')](*action[1:])
+
+    return new_created_links
         
 
-def processor_dry(actions, fs):
+def processor_dry(actions, created_links, fs):
     mapping = {'mkdir': (log_mkdir, 'Directory {0} will be created'),
                'link': (log_link, 'Symlink from  {1} to {0} will be created'),
                'already-linked': (log_verbose, 'Symlink from {1} to {0} already exists'),
@@ -78,6 +85,8 @@ def processor_dry(actions, fs):
     for action in actions:
         func, fmt = mapping[action[0]]
         func(fmt.format(*action[1:]))
+
+    return created_links
 
 
 def create_tree_from_text(text):
@@ -122,7 +131,8 @@ def create_tree_from_text(text):
 
         
 def create_tree_from_filesystem(base_dir, envs):
-    ignored_dirs = ['.git']
+    ignored_dirs = {'.git'}
+    ignored_files = {'README.md'}
     result = []
 
     base_dir_len = len(base_dir)
@@ -132,11 +142,13 @@ def create_tree_from_filesystem(base_dir, envs):
         env_path = os.path.join(base_dir, env)
         
         for root, dirs, files in os.walk(env_path):
+            dirs[:] = [d for d in dirs if d not in ignored_dirs]
+            files[:] = [f for f in files if f not in ignored_files]
+            
             for filename in files:
                 full_path = os.path.join(root, filename)
                 text += full_path[base_dir_len + 1:]
                 text += u'\n'
-            dirs[:] = [d for d in dirs if d not in ignored_dirs]
 
     return create_tree_from_text(text)
 
@@ -304,6 +316,22 @@ def create_install_actions(base_dir, home_dir, tree, filesystem):
     return actions
 
 
+def create_actions_to_remove_broken_symlinks(created_links, fs):
+    """Removes dangling symlinks, created during previous 'dot update' calls.
+    This could happen when you remove or rename some file in the environment.
+    """
+    results = []
+    
+    for source, target in created_links.items():
+        if fs.exists(source) \
+           and fs.is_symlink(source) \
+           and fs.realpath(source) == target \
+           and not fs.exists(target):
+            results.append(('rm', source))
+        
+    return results
+    
+
 def _get_envs(base_dir):
     """Searches installed environments in the base_dir.
     """
@@ -329,6 +357,7 @@ def make_pull(base_dir, env):
 def update(base_dir, home_dir, args,
             processor=None,
             tree_builder=None):
+    dry_run = args['--dry']
     envs = _get_envs(base_dir)
 
     for env in envs:
@@ -340,10 +369,31 @@ def update(base_dir, home_dir, args,
     tree = tree_builder(base_dir, envs)
 
     fs = RealFS()
+    
+    # now, generate 'rm' actions for broken symlinks, among created
+    # during previous 'dot update' invocation
+    created_links_filename = os.path.join(base_dir, '.created-links')
+    if os.path.exists(created_links_filename):
+        with open(created_links_filename) as f:
+            created_links = dict((line.strip().split(' -> '))
+                                 for line in f.readlines())
+            remove_actions = create_actions_to_remove_broken_symlinks(created_links, fs)
+    else:
+        created_links = {}
+        remove_actions = []
+
+    # next, generate actions to create necessary symlinks
     actions = create_install_actions(base_dir, home_dir, tree, fs)
+
     if processor is None:
-        processor = processor_dry if args['--dry'] else processor_real
-    processor(actions, fs)
+        processor = processor_dry if dry_run else processor_real
+        
+    created_links = processor(remove_actions + actions, created_links, fs)
+
+    if not dry_run:
+        with open(created_links_filename, 'w') as f:
+            f.writelines('{0} -> {1}\n'.format(*item)
+                         for item in sorted(created_links.items()))
 
 
 def status(base_dir, home_dir, args):
@@ -357,20 +407,81 @@ def status(base_dir, home_dir, args):
             os.chdir(full_path)
 
             if os.path.exists('.git'):
-                process = subprocess.Popen(['git', 'status', '--porcelain'],
+                process = subprocess.Popen(['git', 'status', '--porcelain', '--branch'],
                                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 stdout = process.stdout.read()
                 if stdout:
-                    print env
-                    print '\n'.join('  ' + line
-                                    for line in stdout.split('\n'))
+                    def replace_ahead(line):
+                        if line.startswith('##'):
+                            match = re.match('^##.*\[ahead (.*?)].*$', line)
+                            if match:
+                                return 'Has {0} not pushed change(s).'.format(match.group(1))
+                        else:
+                            return line
+                        
+                    lines = [line for line in stdout.split('\n')]
+                    lines = map(replace_ahead, lines)
+                    lines = filter(None, lines)
+                    
+                    if lines:
+                        print env
+                        print '\n'.join('  ' + line for line in lines)
             else:
                 print env
                 print '  Is not version controlled.'
 
     finally:
         os.chdir(cwd)
-        
 
+
+def _normalize_url(url):
+    """Returns tuple (real_url, env_name), using
+    following rules:
+    - if url has scheme, its returned as is.
+    - if url is in the form username/repo, then
+      we consider they are username/repo at the github
+      and return full https url.
+    - env_name is a last part of the path with removed
+      '.git' suffix and 'dot[^-]*-' prefix.
+    """
+
+    # extract name
+    name = url.rsplit('/', 1)[-1]
+    name = re.sub(r'^dot[^-]*-', '', name)
+    name = re.sub(r'\.git$', '', name)
+
+    # check if this is a github shortcut
+    match = re.match('^([^/:]+)/([^/]+)$', url)
+    if match is not None:
+        url = 'https://github.com/' + url
+    return (url, name)
+
+
+def _add_url(url):
+    """Installs repo from given url at current dir.
+    """
+    url, env = _normalize_url(url)
+
+    if os.path.exists(env):
+        log_error('Environment "{0}" already exists.'.format(env))
+    else:
+        log_verbose('Cloning repository "{0} to "{1}" dir.'.format(url, env))
+        process = subprocess.check_call(['git', 'clone', url, env])
+    
+
+def add(base_dir, home_dir, args):
+    urls = args['<url>']
+    
+    original_cwd = os.getcwd()
+    os.chdir(base_dir)
+
+    try:
+        for url in urls:
+            _add_url(url)
+    finally:
+        os.chdir(original_cwd)
+
+        
 COMMANDS = dict(update=update,
-                status=status)
+                status=status,
+                add=add)
