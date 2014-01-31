@@ -407,6 +407,16 @@ def status(base_dir, home_dir, args):
             os.chdir(full_path)
 
             if os.path.exists('.git'):
+                lines = []
+                
+                # check if it has remotes first, because if dont, than it is bad!
+                process = subprocess.Popen(['git', 'remote'],
+                                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                stdout = process.stdout.read()
+                if not stdout:
+                    lines.append('This repository has no remote upstream.')
+
+                # next check repository's status
                 process = subprocess.Popen(['git', 'status', '--porcelain', '--branch'],
                                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 stdout = process.stdout.read()
@@ -419,13 +429,15 @@ def status(base_dir, home_dir, args):
                         else:
                             return line
                         
-                    lines = [line for line in stdout.split('\n')]
-                    lines = map(replace_ahead, lines)
-                    lines = filter(None, lines)
-                    
-                    if lines:
-                        print env
-                        print '\n'.join('  ' + line for line in lines)
+                    new_lines = [line for line in stdout.split('\n')]
+                    new_lines = map(replace_ahead, new_lines)
+                    new_lines = filter(None, new_lines)
+                    lines.extend(new_lines)
+
+                # and finally, print all findings
+                if lines:
+                    print env
+                    print '\n'.join('  ' + line for line in lines)
             else:
                 print env
                 print '  Is not version controlled.'
