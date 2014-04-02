@@ -360,8 +360,9 @@ def update(base_dir, home_dir, args,
     dry_run = args['--dry']
     envs = _get_envs(base_dir)
 
-    for env in envs:
-        make_pull(base_dir, env)
+    if not args['--skip-pull']:
+        for env in envs:
+            make_pull(base_dir, env)
     
     # create a files tree
     if tree_builder is None:

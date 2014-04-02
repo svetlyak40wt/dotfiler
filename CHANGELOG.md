@@ -1,3 +1,9 @@
+0.2.0 (2014-04-02)
+==================
+
+* Now command `update` have `--skip-pull` option which is able
+  to make huge impact to the update speed.
+
 0.1.0 (2014-01-31)
 ==================
 
