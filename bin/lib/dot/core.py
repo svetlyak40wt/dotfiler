@@ -5,7 +5,7 @@ import os
 import re
 import subprocess
 
-from itertools import groupby
+from itertools import groupby, starmap
 from .real_filesystem import RealFS
 from .virtual_fs import VirtualFS
 from .logging import (log_mkdir, log_link, log_verbose,
@@ -26,7 +26,7 @@ class File(object):
         return (isinstance(right, File) and
                 self.name == right.name and
                 self.envs == right.envs)
-        
+
 class Dir(object):
     def __init__(self, name, envs, children=None):
         self.name = name
@@ -48,7 +48,7 @@ class Dir(object):
 
 def processor_real(actions, created_links, fs):
     new_created_links = created_links.copy()
-    
+
     def mkdir(dir):
         fs.mkdir(dir)
         log_mkdir('Directory {0} was created.'.format(dir))
@@ -68,13 +68,13 @@ def processor_real(actions, created_links, fs):
 
     def error(message):
         log_error(message)
-        
+
     mapping = locals()
     for action in actions:
         mapping[action[0].replace('-', '_')](*action[1:])
 
     return new_created_links
-        
+
 
 def processor_dry(actions, created_links, fs):
     mapping = {'mkdir': (log_mkdir, 'Directory {0} will be created'),
@@ -129,7 +129,7 @@ def create_tree_from_text(text):
 
     return process(*lines)
 
-        
+
 def create_tree_from_filesystem(base_dir, envs):
     ignored_dirs = {'.git'}
     ignored_files = {'README.md'}
@@ -140,11 +140,11 @@ def create_tree_from_filesystem(base_dir, envs):
     text = u''
     for env in envs:
         env_path = os.path.join(base_dir, env)
-        
+
         for root, dirs, files in os.walk(env_path):
             dirs[:] = [d for d in dirs if d not in ignored_dirs]
             files[:] = [f for f in files if f not in ignored_files]
-            
+
             for filename in files:
                 full_path = os.path.join(root, filename)
                 text += full_path[base_dir_len + 1:]
@@ -152,46 +152,55 @@ def create_tree_from_filesystem(base_dir, envs):
 
     return create_tree_from_text(text)
 
-    
+
 def create_install_actions(base_dir, home_dir, tree, filesystem):
     actions = []
     vfs = VirtualFS(filesystem)
 
     def push_action(action, *args):
         action = (action,) + args
-        
+
         # each destructive action is applied to the
         # virtual filesystem to get actual view
         if action[0] in ('rm', 'mkdir', 'link'):
             getattr(vfs, action[0])(*action[1:])
-            
+
         if len(filter(lambda a: a == action, actions)) == 0:
             actions.append(action)
 
     def push_actions(actions):
         for action in actions:
             push_action(*action)
-        
-    def walk(items):
-        """Returns tuples (path, env) to where path is a
+
+    def walk(items, prefix=tuple()):
+        """Returns tuples (path, env, alternatives) to where path is a
         path to a leaf item of the file tree or a
-        directory with files from one env only."""
+        directory with files from one env only.
+        Alternatives, is the structure and could be tried in case
+        when initial path already exists."""
+
         for item in items:
-            children = getattr(item, 'children', None)
+            new_prefix = prefix + (item.name,)
+            children = getattr(item, 'children', [])
 
-            if children and len(item.envs) > 1:
-                for path, envs in walk(children):
-                    yield ((item.name,) + path,
-                           envs)
+            if len(item.envs) > 1:
+                if children:
+                    for result in walk(children, prefix=new_prefix):
+                        yield result
+                else:
+                    yield (prefix + (item.name,),
+                           item.envs,
+                           [])
             else:
-                yield ((item.name,), item.envs)
+                yield (new_prefix,
+                       item.envs,
+                       walk(children, prefix=new_prefix))
 
-    for path, envs in walk(tree):
+    def process(path, envs, alternatives):
         if len(envs) > 1:
             push_action('error', 'File {0} exists in more then one environments: {1}'.format(
                 os.path.join(*path), ', '.join(envs)))
         else:
-            
             source = os.path.join(base_dir, envs[0], *path)
             target = os.path.join(home_dir, *path)
 
@@ -202,7 +211,7 @@ def create_install_actions(base_dir, home_dir, tree, filesystem):
 
                 target_dir = os.path.dirname(target)
                 in_symlinked_directory = vfs.realpath(target_dir) != target_dir
-                
+
                 realpath = vfs.realpath(target)
                 already_linked = exists and realpath == source
 
@@ -211,7 +220,7 @@ def create_install_actions(base_dir, home_dir, tree, filesystem):
                 symlink_to_some_other_dotfile = (is_symlink
                                                  and symlink_target.startswith(base_dir)
                                                  and symlink_target != source)
-                
+
 
 
                 if already_linked and not in_symlinked_directory:
@@ -245,10 +254,10 @@ def create_install_actions(base_dir, home_dir, tree, filesystem):
 
                     if not actions or actions[-1][0] != 'error':
                         push_actions(mkdirs)
-                        
+
                         if symlink_to_some_other_dotfile:
                             push_action('rm', target)
-                            
+
                         push_action('link', source, target)
                 else:
                     ################## Other actions
@@ -262,7 +271,11 @@ def create_install_actions(base_dir, home_dir, tree, filesystem):
 
 
                     if already_exists_but_not_symlink:
-                        push_action('error', 'File {0} already exists, can\'t make symlink instead of it.'.format(target))
+                        alternatives = list(alternatives)
+                        if alternatives:
+                            process(*alternatives[0])
+                        else:
+                            push_action('error', 'File {0} already exists, can\'t make symlink instead of it.'.format(target))
 
 
 
@@ -313,6 +326,9 @@ def create_install_actions(base_dir, home_dir, tree, filesystem):
                     if not actions or actions[-1][0] != 'error':
                         push_actions(mkdirs)
                         push_action('link', source, target)
+
+    for item in walk(tree):
+        process(*item)
     return actions
 
 
@@ -321,16 +337,16 @@ def create_actions_to_remove_broken_symlinks(created_links, fs):
     This could happen when you remove or rename some file in the environment.
     """
     results = []
-    
+
     for source, target in created_links.items():
         if fs.exists(source) \
            and fs.is_symlink(source) \
            and fs.realpath(source) == target \
            and not fs.exists(target):
             results.append(('rm', source))
-        
+
     return results
-    
+
 
 def _get_envs(base_dir):
     """Searches installed environments in the base_dir.
@@ -366,24 +382,25 @@ def make_pull(base_dir, env):
                 log_verbose(' ' * 4 + line.strip())
     finally:
         os.chdir(pwd)
-        
-    
+
+
 def update(base_dir, home_dir, args,
             processor=None,
             tree_builder=None):
     dry_run = args['--dry']
     envs = _get_envs(base_dir)
 
+    envs = ['osx']
     for env in envs:
         make_pull(base_dir, env)
-    
+
     # create a files tree
     if tree_builder is None:
         tree_builder = create_tree_from_filesystem
     tree = tree_builder(base_dir, envs)
 
     fs = RealFS()
-    
+
     # now, generate 'rm' actions for broken symlinks, among created
     # during previous 'dot update' invocation
     created_links_filename = os.path.join(base_dir, '.created-links')
@@ -401,7 +418,7 @@ def update(base_dir, home_dir, args,
 
     if processor is None:
         processor = processor_dry if dry_run else processor_real
-        
+
     created_links = processor(remove_actions + actions, created_links, fs)
 
     if not dry_run:
@@ -422,7 +439,7 @@ def status(base_dir, home_dir, args):
 
             if os.path.exists('.git'):
                 lines = []
-                
+
                 # check if it has remotes first, because if dont, than it is bad!
                 if not _current_env_has_remote_upstream():
                     lines.append('This repository has no remote upstream.')
@@ -439,7 +456,7 @@ def status(base_dir, home_dir, args):
                                 return 'Has {0} not pushed change(s).'.format(match.group(1))
                         else:
                             return line
-                        
+
                     new_lines = [line for line in stdout.split('\n')]
                     new_lines = map(replace_ahead, new_lines)
                     new_lines = filter(None, new_lines)
@@ -490,11 +507,11 @@ def _add_url(url):
     else:
         log_verbose('Cloning repository "{0} to "{1}" dir.'.format(url, env))
         process = subprocess.check_call(['git', 'clone', url, env])
-    
+
 
 def add(base_dir, home_dir, args):
     urls = args['<url>']
-    
+
     original_cwd = os.getcwd()
     os.chdir(base_dir)
 
@@ -504,7 +521,7 @@ def add(base_dir, home_dir, args):
     finally:
         os.chdir(original_cwd)
 
-        
+
 COMMANDS = dict(update=update,
                 status=status,
                 add=add)
