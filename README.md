@@ -1,6 +1,8 @@
 Dotfiler — the ultimate solution for managing dotfiles!
 =======================================================
 
+[![changelog](http://allmychanges.com/p/python/dotfiler/badge/)](http://allmychanges.com/p/python/dotfiler/?utm_source=badge)
+
 It was inspired by [Zach Holman's dotfiles](https://github.com/holman/dotfiles) and
 [homesick](https://github.com/technicalpickles/homesick), but was made according KISS priciple.
 
@@ -176,7 +178,6 @@ Environments
 * [svetlyak40wt/dot-tmux](https://github.com/svetlyak40wt/dot-tmux) — config and python wrapper for tmux.
 * [svetlyak40wt/dot-git](https://github.com/svetlyak40wt/dot-git) — config and shell aliases for git.
 * [svetlyak40wt/dot-helpers](https://github.com/svetlyak40wt/dot-helpers) — misc command line helpers (see repo's README for full list).
+* [svetlyak40wt/dot-osx](https://github.com/svetlyak40wt/dot-osx) — OSX keybindings and settings.
 
-
-[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/svetlyak40wt/dotfiler/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 

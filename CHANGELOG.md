@@ -1,3 +1,10 @@
+0.3.0 (2014-11-25)
+==================
+
+* Fixed case when `~/Library` already exists and we need to symlink `~/.dotfiles/osx/Library/Keybinding` into it.
+* Add [svetlyak40wt/dot-osx](https://github.com/svetlyak40wt/dot-osx) to the
+  list of [available environments](https://github.com/svetlyak40wt/dotfiler#environments).
+
 0.2.0 (2014-04-02)
 ==================
 
