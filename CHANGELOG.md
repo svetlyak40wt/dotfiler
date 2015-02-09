@@ -1,8 +1,14 @@
+0.4.0 (2015-02-09)
+==================
+
+* Don't create symlinks to files which starts from "news", "changelog' or "readme". Case is ignored.
+  This allows to add changelogs and readmes into the [pluggable environments][envs].
+
 0.3.0 (2014-11-25)
 ==================
 
 * Fixed case when `~/Library` already exists and we need to symlink `~/.dotfiles/osx/Library/Keybinding` into it.
-* Add [svetlyak40wt/dot-osx](https://github.com/svetlyak40wt/dot-osx) to the list of [available environments](https://github.com/svetlyak40wt/dotfiler#environments).
+* Add [svetlyak40wt/dot-osx](https://github.com/svetlyak40wt/dot-osx) to the list of [available environments][envs].
 
 0.2.0 (2014-04-02)
 ==================
@@ -20,3 +26,6 @@ First full featured release. Right now it is able to:
 * add new environments by url, pointing to a repository, or by github
   shortcut;
 * show status of environments (uncommited/unpushed files).
+
+
+[envs]: https://github.com/svetlyak40wt/dotfiler#environments
