@@ -5,7 +5,7 @@ import os
 import re
 import subprocess
 
-from itertools import groupby, starmap
+from itertools import groupby
 from .real_filesystem import RealFS
 from .virtual_fs import VirtualFS
 from .logging import (log_mkdir, log_link, log_verbose,
@@ -26,6 +26,7 @@ class File(object):
         return (isinstance(right, File) and
                 self.name == right.name and
                 self.envs == right.envs)
+
 
 class Dir(object):
     def __init__(self, name, envs, children=None):
@@ -61,10 +62,12 @@ def processor_real(actions, created_links, fs):
     def link(source, target):
         fs.symlink(source, target)
         new_created_links[target] = source
-        log_link('Symlink from {0} to {1} was created'.format(target, source))
+        log_link('Symlink from {0} to {1} was created'.format(
+            target, source))
 
     def already_linked(source, target):
-        log_verbose('Symlink from {0} to {1} already exists'.format(target, source))
+        log_verbose('Symlink from {0} to {1} already exists'.format(
+            target, source))
 
     def error(message):
         log_error(message)
@@ -79,7 +82,8 @@ def processor_real(actions, created_links, fs):
 def processor_dry(actions, created_links, fs):
     mapping = {'mkdir': (log_mkdir, 'Directory {0} will be created'),
                'link': (log_link, 'Symlink from  {1} to {0} will be created'),
-               'already-linked': (log_verbose, 'Symlink from {1} to {0} already exists'),
+               'already-linked': (
+                   log_verbose, 'Symlink from {1} to {0} already exists'),
                'error': (log_error, '{0}'),
                'rm': (log_rm, 'Symlink {0} will be removed.')}
     for action in actions:
@@ -132,9 +136,8 @@ def create_tree_from_text(text):
 
 def create_tree_from_filesystem(base_dir, envs):
     ignored_dirs = {'.git'}
-    ignored_files_re = re.compile(ur'(readme.*|news|changelog.*)', re.I)
-    result = []
-
+    ignored_files_re = re.compile(ur'(readme.*|news|changelog.*|.gitignore)',
+                                  re.I)
     base_dir_len = len(base_dir)
 
     text = u''
