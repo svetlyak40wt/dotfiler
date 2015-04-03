@@ -179,5 +179,8 @@ Environments
 * [svetlyak40wt/dot-git](https://github.com/svetlyak40wt/dot-git) — config and shell aliases for git.
 * [svetlyak40wt/dot-helpers](https://github.com/svetlyak40wt/dot-helpers) — misc command line helpers (see repo's README for full list).
 * [svetlyak40wt/dot-osx](https://github.com/svetlyak40wt/dot-osx) — OSX keybindings and settings.
-
+* [svetlyak40wt/dot-python-dev](https://github.com/svetlyak40wt/dot-python-dev) – emacs, zsh and pudb settings for Python developement.
+* [svetlyak40wt/dot-growl](https://github.com/svetlyak40wt/dot-growl) – A helper to use growl notifications from ssh sessions.
+* [svetlyak40wt/dot-lisp](https://github.com/svetlyak40wt/dot-lisp) – Dotfiler's config for Lisp development. 
+* [svetlyak40wt/dot-osbench](https://github.com/svetlyak40wt/dot-osbench) – A helper to setup PATH to [OSBench's](https://github.com/svetlyak40wt/osbench) bin directory.
 
