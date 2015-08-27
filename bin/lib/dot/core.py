@@ -136,7 +136,7 @@ def create_tree_from_text(text):
 
 def create_tree_from_filesystem(base_dir, envs):
     ignored_dirs = {'.git'}
-    ignored_files_re = re.compile(ur'(readme.*|news|changelog.*|.gitignore)',
+    ignored_files_re = re.compile(ur'(readme.*|news|changelog.*|.gitignore|tags)',
                                   re.I)
     base_dir_len = len(base_dir)
 
