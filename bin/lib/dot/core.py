@@ -149,7 +149,7 @@ def create_tree_from_filesystem(base_dir, envs):
             files[:] = [f for f in files if ignored_files_re.match(f) is None]
 
             for filename in files:
-                full_path = os.path.join(root, filename)
+                full_path = os.path.join(root, filename).decode('utf-8')
                 text += full_path[base_dir_len + 1:]
                 text += u'\n'
 

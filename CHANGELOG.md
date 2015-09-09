@@ -1,3 +1,8 @@
+0.4.2 (2015-09-09)
+==================
+
+* Fixed processing of filenames containing unicode symbols.
+	
 0.4.1 (2015-02-10)
 ==================
 
