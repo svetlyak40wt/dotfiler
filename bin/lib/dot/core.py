@@ -99,7 +99,7 @@ def create_tree_from_text(text):
 
     # parse text
     lines = (line.strip() for line in text.split('\n'))
-    lines = [line.split('/') for line in lines if line]
+    lines = [line.split(os.sep) for line in lines if line]
     lines.sort(key=lambda x: x[1:])
 
     # extract environments, they are first level directories
