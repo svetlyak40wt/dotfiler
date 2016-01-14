@@ -45,7 +45,7 @@ Get involved
 
 Don't hesitate to try dotfiler. Just install it and make your configs more structured.  Extract useful ones and share them in the GitHub, as I did. Then send me a link with a short description (or make a pull request), and I'll add you repositories to the end of this page. 
 
-Dotfiler was developed in TDD, it's core functionality is fully tested, but that doesn't mean there isn't bugs. If you have found one, file the issue, or better, try to write a test for the use case, fix it and send as a pull request. To run all tests, install nose and run ./test. 
+Dotfiler was developed in TDD, it's core functionality is fully tested, but that doesn't mean there isn't bugs. If you have found one, file the issue, or better, try to write a test for the use case, fix it and send as a pull request. To run all tests, install nose and run `nosetests bin/lib/dot`. 
 
 More technical details
 ----------------------

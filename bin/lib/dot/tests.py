@@ -311,6 +311,30 @@ def test_actions_complex_example_where_intermediate_dir_is_symlink_to_other_dotf
         actions)
 
 
+def test_actions_complex_example_where_intermediate_dir_exists_and_contains_some_files():
+    """Если промежуточная директория существует и содержит файлы не контролируемые через dotfiler."""
+    # this test was created to check issue #15
+    # https://github.com/svetlyak40wt/dotfiler/issues/15
+
+    filesystem = FakeFilesystem("""
+    /home/art/.emacs.d/
+    /home/art/.emacs.d/custom.el
+    """)
+    tree = create_tree("""
+    base/.emacs.d/config/base.el
+    base/.emacs.d/init.el
+    """)
+
+    actions = create_install_actions(base_dir, home_dir, tree, filesystem)
+    eq_([('link',
+          '/home/art/.dotfiles/base/.emacs.d/config',
+          '/home/art/.emacs.d/config'),
+         ('link',
+          '/home/art/.dotfiles/base/.emacs.d/init.el',
+          '/home/art/.emacs.d/init.el')],
+        actions)
+
+
 def test_fakefs_realpath():
     filesystem = FakeFilesystem("""
     /home/art/.zsh/alias -> /home/art/.dotfiles/base/.zsh/alias

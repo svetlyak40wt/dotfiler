@@ -1,3 +1,12 @@
+0.4.3 (2016-01-14)
+==================
+
+* License files now are ignored (thanks to @alamaison).
+* Added Windows support (thanks to @alamaison).
+* Fixed issue #15 when some symlinks are not created because
+parent directory already exists and not belong to any dotfiler's
+environment.
+
 0.4.2 (2015-09-09)
 ==================
 

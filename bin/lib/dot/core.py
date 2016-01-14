@@ -207,6 +207,9 @@ def create_install_actions(base_dir, home_dir, tree, filesystem):
             source = os.path.join(base_dir, envs[0], *path)
             target = os.path.join(home_dir, *path)
 
+            # log_verbose('Checking if {target} can be linked to {source}'.format(
+            #     target=target,
+            #     source=source))
 
             if True:
                 exists = vfs.exists(target)
@@ -276,7 +279,8 @@ def create_install_actions(base_dir, home_dir, tree, filesystem):
                     if already_exists_but_not_symlink:
                         alternatives = list(alternatives)
                         if alternatives:
-                            process(*alternatives[0])
+                            for params in alternatives:
+                                process(*params)
                         else:
                             push_action('error', 'File {0} already exists, can\'t make symlink instead of it.'.format(target))
 
