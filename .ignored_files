@@ -1,0 +1,9 @@
+# List of files to be ignored, not copied
+readme.*
+news
+licence
+license
+changelog.*
+.gitignore
+tags
+.gitmodules
