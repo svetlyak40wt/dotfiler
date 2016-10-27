@@ -168,7 +168,13 @@ LINK    Symlink from /home/art/.zsh/ssh-agent to /home/art/.dotfiles/zsh/.zsh/ss
 LINK    Symlink from /home/art/.zshrc to /home/art/.dotfiles/zsh/.zshrc was created
 ```
 
-Have you got the idea? Good!
+Have you got the idea? Good! File an issue or (better) send a pull-request.
+
+How to ignore some files
+========================
+
+Edit a config file `~/.dotfiles/.dotignore` and add any regex
+patterns which you need.
 
 Environments
 ------------
