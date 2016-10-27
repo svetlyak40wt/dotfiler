@@ -1,3 +1,12 @@
+0.5.0 (2016-10-27)
+==================
+
+Config file `.dotignore` was added and now it is possible
+to extend ignore list with custom patterns. Thanks to
+@TimothyEarley for the pull [#17](https://github.com/svetlyak40wt/dotfiler/pull/17).
+
+Also, now `.gitmodules` is ignored by default.
+
 0.4.3 (2016-01-14)
 ==================
 

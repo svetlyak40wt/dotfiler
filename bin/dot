@@ -33,7 +33,7 @@ from dot.logging import init_logging
 
 
 if __name__ == '__main__':
-    arguments = docopt(__doc__, version='dot 0.4.2')
+    arguments = docopt(__doc__, version='dot 0.5.0')
     init_logging(verbose=arguments.get('--verbose', False))
 
     for name, func in COMMANDS.items():
