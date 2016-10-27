@@ -137,21 +137,21 @@ def create_tree_from_text(text):
 def create_tree_from_filesystem(base_dir, envs):
     ignored_dirs = {'.git'}
     # read ignored files from file.
-    ignored_files_config = os.path.join(base_dir, '.ignored_files')
-    if (os.path.isfile(ignored_files_config)):
-        ignored_files_list = []
-        # This just reads every line and adds it to the regex directly, so probably will break with some input.
-        for line in open(ignored_files_config, 'r'):
-            file_name = line.rstrip() # remove whitespace and newlines
-            if (file_name and not file_name.startswith('#')): #check if line is empty and not a comment
-                ignored_files_list.append(file_name)
-        ignored_files = '(' + "|".join(ignored_files_list) + ')$' #format for regex
-    else:
-        # default
-        ignored_files = ur'(readme.*|news|licence|license|changelog.*|.gitignore|tags)$'
-    ignored_files_re = re.compile(ignored_files, re.I)
-    base_dir_len = len(base_dir)
+    ignored_files_config = os.path.join(base_dir, '.dotignore')
+    ignored_files = []
 
+    if os.path.isfile(ignored_files_config):
+        with open(ignored_files_config) as f:
+            for line in f:
+                file_name = line.rstrip()
+                # we only add non empty files and ignore comments starting with #
+                if file_name and not file_name.startswith('#'):
+                    ignored_files.append(file_name)
+
+    ignored_files = '(' + "|".join(ignored_files) + ')$' #format for regex
+    ignored_files_re = re.compile(ignored_files, re.I)
+
+    base_dir_len = len(base_dir)
     text = u''
     for env in envs:
         env_path = os.path.join(base_dir, env)

@@ -1,4 +1,5 @@
 # List of files to be ignored, not copied
+# these are case insencetive
 readme.*
 news
 licence
