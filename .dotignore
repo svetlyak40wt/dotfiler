@@ -1,5 +1,5 @@
 # List of files to be ignored, not copied
-# these are case insencetive
+# these are case insensitive
 readme.*
 news
 licence
@@ -8,3 +8,4 @@ changelog.*
 .gitignore
 tags
 .gitmodules
+.*\.sw.
