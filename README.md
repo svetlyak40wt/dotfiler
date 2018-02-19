@@ -3,60 +3,62 @@ Dotfiler — the ultimate solution for managing dotfiles!
 
 [![changelog](http://allmychanges.com/p/python/dotfiler/badge/)](http://allmychanges.com/p/python/dotfiler/?utm_source=badge)
 
-It was inspired by [Zach Holman's dotfiles](https://github.com/holman/dotfiles) and
-[homesick](https://github.com/technicalpickles/homesick), but was made according KISS priciple.
+This was inspired by [Zach Holman's dotfiles](https://github.com/holman/dotfiles) and
+[homesick](https://github.com/technicalpickles/homesick), but was made according the KISS priciple.
 
-There are very few commands in dotfiler: `update`, `add` and `status`:
+There are very few commands in dotfiler, only: `update`, `add` and `status`:
 
-* `update` will make pull from all version controlled envs (env is a subdirectory inside
-  the `~/.dotfiles` dir, where different configs and scripts could be placed. After that,
-  `update` will make all that mumbo-jumbo, symlinking and removing old broken symlinks.
+* `update` will pull from all version controlled envs (env is a subdirectory inside
+  the `~/.dotfiles` dir, where different configs and scripts could be placed). After that,
+  `update` will make all that mumbo-jumbo, symlinking, and removing old broken symlinks.
   If you want to see what will it do without but afraid to loose some files, just fire
   `dot update --dry --verbose`.
 * `add` allows you to clone one or more repositories with configs. For example, this
-  will clone my emacs's configs: `dot add svetlyak40wt/dot-emacs'. Of cause you could
-  use full url, like that: <https://github.com/svetlyak40wt/dot-emacs> or
+  will clone my emacs's configs: `dot add svetlyak40wt/dot-emacs`. Of course you could
+  use a full url, like this: <https://github.com/svetlyak40wt/dot-emacs> or
   <git@github.com:svetlyak40wt/dot-emacs.git>.
-* `status` will show you if there are some uncommited changes in the envs, and even
+* `status` will show you if there are any uncommited changes in the envs and
   warn you if some of them aren't version controlled.
 
 Installation
 ------------
 
-1. Clone this project somewhere like `$HOME/.dotfiles` and add `$HOME/.dotfiles/bin` into
-your `PATH`.
-2. Then clone some config files into the `$HOME/.dotfiles` .
+1. Clone this project somewhere like `$HOME/.dotfiles` and add `$HOME/.dotfiles/bin` into your `PATH`.
+2. Clone some config files into the `$HOME/.dotfiles`.
 3. Run `dot update` to make all necessary symlinks.
 4. Have a profit!
 
-How does it work
-----------------
+Overview
+------------
 
-From user's point of view — very simple. You just create a separate subdirectories, called "environments", put configs there and run `dot update`. Dotfiler will make all necessary symlinks automagickally. **What makes dotfiler better, than other solutions?** It's ability to merge files from different environments into one target dir. I'll give you example for a better understanding. 
+From user's point of view — very simply. You just create a separate subdirectory called "environments", put configs there and then run `dot update`. Dotfiler will make all necessary symlinks automagickally. **What makes dotfiler better, than other solutions?** It's ability to merge files from different environments into one target dir. Here's an example:
 
-Suppose, you have a `~/.zshrc` which sources all configs from `~/.zsh/`. And you want to separate every-day configs from the configs only needed on machines at your daily-job. In most config managers you will end upwith two separate repositories sharing part of zsh config. But dotfiler allows you to make a much clever thing — to separate zsh (actually any other configs too, if they may understand `include` instruction) into the different environments.
+Suppose, you have a `~/.zshrc` which sources all configs from `~/.zsh/`. And you want to separate default configs from the configs only needed on work machines. In most config managers you will end up with two separate repositories, each sharing part of zsh config. But dotfiler allows you to do a much more clever thing — separate zsh (actually any other configs too, if they understand `include`) into the different environments.
 
-In this example, first environment, let's call it `base`, will contain file `base/.zsh/generic`. Second environment, called `atwork`, will have `atwork/.zsh/secret-settings`. Both of them, off cause could include other files, not only zsh configs. And most importantly, these environment now could be stored separately and installed to each machine separately. What does it meean? Right! Now, you could share you generic everyday configs on the GitHub, but keep daily-job's configs in a dry-n-safe-secret-private-repository. 
+In this example:
 
-There is a way to add new environments using `dot add <url> <url>...`. Probably the process of adding environments on a fresh machine will be even more improved, when I introduce a concept of the meta-environments, which will make it possible to make one env depends on few another and to pull them during `dot add` procedure.
+* The first environment, let's call it `base`, will contain the file `base/.zsh/generic`.
+* The second environment, called `atwork`, will have `atwork/.zsh/secret-settings`. 
+
+Both of them, of course, could include other files, not only zsh configs. Most importantly, these environment now can be stored separately and installed on each machine separately. Now, you can share you default configs on the GitHub, but keep work configs in a separate, private repository. 
+
+You can also add new environments using `dot add <url> <url>...`. (Probably the process of adding environments on a fresh machine will be even more improved, when I introduce a 'meta-environments', which will allow you to make one env depend on other envs and pull them automatically when adding)
 
 Get involved
 ------------
 
-Don't hesitate to try dotfiler. Just install it and make your configs more structured.  Extract useful ones and share them in the GitHub, as I did. Then send me a link with a short description (or make a pull request), and I'll add you repositories to the end of this page. 
+Don't hesitate to try dotfiler. Just install it and make your configs more structured.  Extract useful ones and share them on GitHub, as I did. Then send me a link with a short description (or make a pull request), and I'll add you repositories to the end of this page.
 
-Dotfiler was developed in TDD, it's core functionality is fully tested, but that doesn't mean there isn't bugs. If you have found one, file the issue, or better, try to write a test for the use case, fix it and send as a pull request. To run all tests, install nose and run `nosetests bin/lib/dot`. 
+Dotfiler's core functionality is fully tested, but that doesn't mean there aren't bugs. If you find one, file the issue on Github, or even better, try to write a test and/or fix for that use case and send it as a pull request. To run all tests, install nose and run `nosetests bin/lib/dot`. 
 
-More technical details
-----------------------
+How it works
+------------
 
-If you are wondering, how does dotfiler work inside, I'll tell you. 
+First dotfiler, walks through all files and all environments collecting dirs and files mentioned in more than one environment as a tree. If a file with same filename exits in more than one environment this is an error and `dot` will tell you they are conflicting. 
 
-First of all, it walks through all files and all environments collecting all dirs, mentioned in more than one environment and files. If file with same filename exits in few environments, this is an error and `dot` will tell you they are conflicting. 
+Then, using this tree, it generates source—target pairs, where source is a file inside the environment dir and target is where it should be in your home dir. 
 
-Having this dirs/files tree, it generates pairs source — target, where source is a file inside the environment dir and target is where it should be in your home dir. 
-
-After this data is ready, `dot` generates one or more actions for each pair. Actions could be `rm`, `mkdir`, `link`, `already-linked` and `error`. Which action will be generated, depends on the current file system's state and previously generated actions. Here is a simple example:
+Finally, `dot` generates actions for each pair. Actions could be `rm`, `mkdir`, `link`, `already-linked` and `error`. Action are generated based on the current file system's state and previously generated actions. Here is a simple example:
 
 This is a structure of the `~/.dotfiles` with two separate enviroments `zsh` and `emacs`:
 
@@ -121,10 +123,10 @@ LINK    Symlink from /home/art/.zsh to /home/art/.dotfiles/zsh/.zsh was created
 LINK    Symlink from /home/art/.zshrc to /home/art/.dotfiles/zsh/.zshrc was created
 ```
 
-As you can see, dotfiler creates two symlinks to files and two to directories. But this was simple situation
-when two environments contain no files to be symlinked into the same directory.
+As you can see, dotfiler creates four symlinks, two to files, and two to directories. But this was simple situation
+with no overlapping subdirectories.
 
-Here is another example, showing how config mergin works:
+Here is another example, showing how config merging works:
 
 ```
 .
@@ -168,13 +170,10 @@ LINK    Symlink from /home/art/.zsh/ssh-agent to /home/art/.dotfiles/zsh/.zsh/ss
 LINK    Symlink from /home/art/.zshrc to /home/art/.dotfiles/zsh/.zshrc was created
 ```
 
-Have you got the idea? Good! File an issue or (better) send a pull-request.
-
 How to ignore some files
 ========================
 
-Edit a config file `~/.dotfiles/.dotignore` and add any regex
-patterns which you need.
+Edit a config file `~/.dotfiles/.dotignore` and add any regex patterns you need.
 
 Environments
 ------------
