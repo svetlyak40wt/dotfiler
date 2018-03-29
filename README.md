@@ -189,3 +189,7 @@ Environments
 * [svetlyak40wt/dot-lisp](https://github.com/svetlyak40wt/dot-lisp) – Dotfiler's config for Lisp development. 
 * [svetlyak40wt/dot-osbench](https://github.com/svetlyak40wt/dot-osbench) – A helper to setup PATH to [OSBench's](https://github.com/svetlyak40wt/osbench) bin directory.
 
+Another solutions
+-----------------
+
+* [skeswa/dotfiler](https://github.com/skeswa/dotfiler) – another utility with the same name but completely different approach.
