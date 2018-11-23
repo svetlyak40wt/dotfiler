@@ -9,3 +9,4 @@ changelog.*
 tags
 .gitmodules
 .*\.sw.
+.gitattributes
