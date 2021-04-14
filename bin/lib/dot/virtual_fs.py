@@ -21,7 +21,7 @@ class VirtualFS(object):
     def _split(self, path):
         """Returns path's parts except the first one which is empty string.
         Also, ignores double slashes."""
-        return filter(None, path.split('/'))
+        return list(filter(None, path.split('/')))
 
     def _join(self, *args):
         """A little helper for convinience."""

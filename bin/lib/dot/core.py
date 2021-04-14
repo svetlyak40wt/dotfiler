@@ -4,6 +4,7 @@ from __future__ import absolute_import
 import os
 import re
 import subprocess
+import sys
 
 from itertools import groupby
 from .real_filesystem import RealFS
@@ -161,7 +162,7 @@ def create_tree_from_filesystem(base_dir, envs):
             files[:] = [f for f in files if ignored_files_re.match(f) is None]
 
             for filename in files:
-                full_path = os.path.join(root, filename).decode('utf-8')
+                full_path = os.path.join(root, filename)
                 text += full_path[base_dir_len + 1:]
                 text += u'\n'
 
@@ -180,7 +181,7 @@ def create_install_actions(base_dir, home_dir, tree, filesystem):
         if action[0] in ('rm', 'mkdir', 'link'):
             getattr(vfs, action[0])(*action[1:])
 
-        if len(filter(lambda a: a == action, actions)) == 0:
+        if len(list(filter(lambda a: a == action, actions))) == 0:
             actions.append(action)
 
     def push_actions(actions):
@@ -398,7 +399,7 @@ def make_pull(base_dir, env):
             process = subprocess.Popen(['git', 'pull'],
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             for line in process.stdout:
-                log_verbose(' ' * 4 + line.strip())
+                log_verbose(' ' * 4 + line.decode(sys.stdout.encoding).strip())
     finally:
         os.chdir(pwd)
 
@@ -483,11 +484,11 @@ def status(base_dir, home_dir, args):
 
                 # and finally, print all findings
                 if lines:
-                    print env
-                    print '\n'.join('  ' + line for line in lines)
+                    print(env)
+                    print('\n'.join('  ' + line for line in lines))
             else:
-                print env
-                print '  Is not version controlled.'
+                print(env)
+                print('  Is not version controlled.')
 
     finally:
         os.chdir(cwd)
