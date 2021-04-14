@@ -35,5 +35,5 @@ class RealFS(object):
                 if csl(link_name, source, flags) == 0:
                     raise ctypes.WinError()
         except:
-            print 'CANT LINK: {1} -> {0}'.format(source, link_name)
+            print('CANT LINK: {1} -> {0}'.format(source, link_name))
             raise
