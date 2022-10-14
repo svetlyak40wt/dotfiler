@@ -401,7 +401,7 @@ def make_pull(base_dir, env):
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                    encoding='utf-8')
             for line in process.stdout:
-                log_verbose(' ' * 4 + line.decode(sys.stdout.encoding).strip())
+                log_verbose(' ' * 4 + line.strip())
     finally:
         os.chdir(pwd)
 
