@@ -384,7 +384,8 @@ def _current_env_has_remote_upstream():
     remote upstream."""
     if os.path.exists('.git'):
         process = subprocess.Popen(['git', 'remote'],
-                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   encoding='utf-8')
         stdout = process.stdout.read()
         return bool(stdout)
     return False
@@ -397,7 +398,8 @@ def make_pull(base_dir, env):
         if _current_env_has_remote_upstream():
             log_verbose('Making pull in "{0}":'.format(env))
             process = subprocess.Popen(['git', 'pull'],
-                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   encoding='utf-8')
             for line in process.stdout:
                 log_verbose(' ' * 4 + line.decode(sys.stdout.encoding).strip())
     finally:
@@ -466,7 +468,8 @@ def status(base_dir, home_dir, args):
 
                 # next check repository's status
                 process = subprocess.Popen(['git', 'status', '--porcelain', '--branch'],
-                                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                           encoding='utf-8')
                 stdout = process.stdout.read()
                 if stdout:
                     def replace_ahead(line):
