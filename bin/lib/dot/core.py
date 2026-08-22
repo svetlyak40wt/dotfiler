@@ -32,7 +32,7 @@ class File(object):
 class Dir(object):
     def __init__(self, name, envs, children=None):
         self.name = name
-        self.envs = list(set(envs))
+        self.envs = sorted(set(envs))
         self.children = children or []
 
     def __repr__(self):
@@ -112,7 +112,7 @@ def create_tree_from_text(text):
     extract_envs = lambda lines: [line[1] for line in lines]
 
     def process(*lines):
-        if not filter(lambda x: x[0][0], lines):
+        if not any(line[0][0] for line in lines):
             return ()
         else:
 
@@ -123,13 +123,13 @@ def create_tree_from_text(text):
 
             # here is we are doing woodoo magick with items in pipeline
             grouped = [(key,
-                        filter(lambda x: x[0], [(tail(item[0]), item[1]) for item in items]),
+                        [(tail(item[0]), item[1]) for item in items if tail(item[0])],
                         extract_envs(items))
                        for key, items in grouped]
 
             grouped = [Dir(key, envs, children=process(*reminder)) if reminder else File(key, envs)
                        for key, reminder, envs in grouped]
-            grouped = filter(None, grouped)
+            grouped = [item for item in grouped if item]
             return grouped
 
     return process(*lines)
