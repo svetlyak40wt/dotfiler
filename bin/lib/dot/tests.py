@@ -2,7 +2,15 @@
 from .core import *
 from .core import _normalize_url
 from .virtual_fs import VirtualFS
-from nose.tools import eq_
+
+
+def eq_(expected, actual, msg=None):
+    """Asserts that two values are equal.
+
+    Replaces nose.tools.eq_: nose is unmaintained and does not import on
+    Python 3, which made the whole suite fail to be collected.
+    """
+    assert expected == actual, msg or '{0!r} != {1!r}'.format(expected, actual)
 
 
 base_dir = '/home/art/.dotfiles'
